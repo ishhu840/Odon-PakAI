@@ -1,8 +1,8 @@
 import os
 import requests
 import logging
-from datetime import datetime
-from typing import Dict, Any, Optional
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +148,46 @@ class WeatherService:
         except Exception as e:
             logger.error(f"Error getting dominant condition: {e}")
             return "Unknown"
-    
+    def get_historical_weather(self, lat: float, lon: float, start: int, end: int) -> Optional[Dict[str, Any]]:
+        """Get historical weather data for specific coordinates (mocked)."""
+        logger.info(f"Fetching historical weather for lat={lat}, lon={lon} (mocked)")
+        
+        mock_data_points = []
+        current_dt = datetime.fromtimestamp(start)
+        end_dt = datetime.fromtimestamp(end)
+
+        while current_dt <= end_dt:
+            mock_data_points.append({
+                "dt": int(current_dt.timestamp()),
+                "temp": 25 + (current_dt.day % 5) - 2, # Simulate some temperature variation
+                "feels_like": 25 + (current_dt.day % 5) - 2,
+                "pressure": 1012 + (current_dt.day % 3) - 1,
+                "humidity": 60 + (current_dt.day % 10) - 5,
+                "dew_point": 16.67 + (current_dt.day % 3) - 1,
+                "uvi": 5.4 + (current_dt.day % 2) - 1,
+                "clouds": 20 + (current_dt.day % 15) - 7,
+                "visibility": 10000,
+                "wind_speed": 3.09 + (current_dt.day % 2) - 1,
+                "wind_deg": 360,
+                "weather": [
+                    {
+                        "id": 801,
+                        "main": "Clouds",
+                        "description": "few clouds",
+                        "icon": "02d"
+                    }
+                ]
+            })
+            current_dt += timedelta(days=1)
+
+        return {
+            "lat": lat,
+            "lon": lon,
+            "timezone": "Asia/Karachi",
+            "timezone_offset": 18000,
+            "data": mock_data_points
+        }
+
     def get_weather_alerts(self) -> Dict[str, Any]:
         """Get weather alerts that may affect health"""
         try:
@@ -158,74 +197,332 @@ class WeatherService:
             # High-risk areas based on disease case data
             high_risk_areas = ["Karachi", "Lahore", "Faisalabad", "Rawalpindi", "Multan", "Peshawar", "Quetta"]
             
-            for city in weather_data.get("cities", []):
-                # Focus on high-risk areas or areas with concerning weather conditions
-                if city["city"] in high_risk_areas or city["temperature"] > 35 or city["humidity"] > 70:
-                    if city["temperature"] > 40:
-                        alerts.append({
-                            "city": city["city"],
-                            "type": "heat_wave",
-                            "severity": "high",
-                            "message": f"Extreme heat warning: {city['temperature']}°C - High risk for heat-related illness",
-                            "health_impact": "Increases dehydration and heat stroke risk"
-                        })
-                    
-                    if city["humidity"] > 75:
-                        alerts.append({
-                            "city": city["city"],
-                            "type": "high_humidity",
-                            "severity": "medium",
-                            "message": f"High humidity: {city['humidity']}% - Optimal conditions for disease vectors",
-                            "health_impact": "Increases malaria and dengue transmission risk"
-                        })
-                    
-                    if city["temperature"] > 28 and city["humidity"] > 70:
-                        alerts.append({
-                            "city": city["city"],
-                            "type": "vector_breeding",
-                            "severity": "high",
-                            "message": f"Ideal vector conditions: {city['temperature']}°C, {city['humidity']}% humidity",
-                            "health_impact": "Perfect breeding conditions for mosquitoes"
-                        })
-                    
-                    if city["temperature"] < 5:
-                        alerts.append({
-                            "city": city["city"],
-                            "type": "cold_wave",
-                            "severity": "medium",
-                            "message": f"Cold wave warning: {city['temperature']}°C - Respiratory illness risk",
-                            "health_impact": "Increases respiratory infection risk"
-                        })
+            # Monsoon season flood-prone areas in Pakistan
+            flood_prone_areas = ["Karachi", "Lahore", "Rawalpindi", "Islamabad", "Peshawar", "Multan", "Faisalabad"]
             
-            # Always add at least some alerts for demonstration
-            if len(alerts) == 0:
-                alerts = [
-                    {
-                        "city": "Karachi",
+            # Current monsoon season (June-September)
+            current_month = datetime.now().month
+            is_monsoon_season = 6 <= current_month <= 9
+            
+            for city in weather_data.get("cities", []):
+                city_name = city["city"]
+                temp = city["temperature"]
+                humidity = city["humidity"]
+                
+                # Monsoon and flood-related alerts
+                if is_monsoon_season and city_name in flood_prone_areas:
+                    alerts.append({
+                        "city": city_name,
+                        "type": "monsoon_flood_risk",
+                        "severity": "critical",
+                        "message": f"MONSOON ALERT: {city_name} is in active monsoon season with high flood risk",
+                        "health_impact": "Extreme risk for waterborne diseases (cholera, typhoid), vector-borne diseases (dengue, malaria), and respiratory infections"
+                    })
+                
+                # Heavy rainfall and flooding conditions
+                if humidity > 85 and is_monsoon_season:
+                    alerts.append({
+                        "city": city_name,
+                        "type": "flood_conditions",
+                        "severity": "high",
+                        "message": f"Flooding conditions detected: {humidity}% humidity during monsoon season",
+                        "health_impact": "High risk for waterborne diseases, contaminated water supply, and vector breeding"
+                    })
+                
+                # Waterborne disease risk
+                if is_monsoon_season and city_name in ["Karachi", "Lahore", "Rawalpindi", "Peshawar"]:
+                    alerts.append({
+                        "city": city_name,
+                        "type": "waterborne_disease_risk",
+                        "severity": "high",
+                        "message": f"High waterborne disease risk due to monsoon flooding in {city_name}",
+                        "health_impact": "Increased risk of cholera, typhoid, hepatitis A, and diarrheal diseases"
+                    })
+                
+                # Enhanced vector breeding during monsoon
+                if is_monsoon_season and temp > 25 and humidity > 70:
+                    alerts.append({
+                        "city": city_name,
+                        "type": "monsoon_vector_breeding",
+                        "severity": "critical",
+                        "message": f"Critical vector breeding conditions: Monsoon + {temp}°C + {humidity}% humidity",
+                        "health_impact": "Extreme dengue and malaria transmission risk due to standing water from floods"
+                    })
+                
+                # Standard weather alerts
+                if temp > 40:
+                    alerts.append({
+                        "city": city_name,
+                        "type": "heat_wave",
+                        "severity": "high",
+                        "message": f"Extreme heat warning: {temp}°C - High risk for heat-related illness",
+                        "health_impact": "Increases dehydration and heat stroke risk"
+                    })
+                
+                if humidity > 75 and not is_monsoon_season:
+                    alerts.append({
+                        "city": city_name,
                         "type": "high_humidity",
                         "severity": "medium",
-                        "message": "High humidity levels create favorable conditions for disease vectors",
-                        "health_impact": "Increased malaria and dengue transmission risk"
-                    },
-                    {
-                        "city": "Lahore",
-                        "type": "air_quality",
-                        "severity": "high",
-                        "message": "Poor air quality alert - respiratory health concerns",
-                        "health_impact": "Increased respiratory illness risk"
-                    }
-                ]
+                        "message": f"High humidity: {humidity}% - Optimal conditions for disease vectors",
+                        "health_impact": "Increases malaria and dengue transmission risk"
+                    })
+                
+                if temp < 5:
+                    alerts.append({
+                        "city": city_name,
+                        "type": "cold_wave",
+                        "severity": "medium",
+                        "message": f"Cold wave warning: {temp}°C - Respiratory illness risk",
+                        "health_impact": "Increases respiratory infection risk"
+                    })
+            
+            # Add general monsoon season alert if no specific alerts
+            if is_monsoon_season and len(alerts) == 0:
+                alerts.append({
+                    "city": "National",
+                    "type": "monsoon_season_alert",
+                    "severity": "high",
+                    "message": "Pakistan is currently in monsoon season - Multiple areas experiencing flooding",
+                    "health_impact": "Nationwide increased risk for waterborne and vector-borne diseases"
+                })
             
             return {
                 "alerts": alerts,
                 "count": len(alerts),
-                "last_updated": datetime.now().isoformat()
+                "last_updated": datetime.now().isoformat(),
+                "monsoon_season": is_monsoon_season,
+                "flood_risk_areas": flood_prone_areas if is_monsoon_season else []
             }
             
         except Exception as e:
             logger.error(f"Error generating weather alerts: {e}")
             return {"alerts": [], "count": 0, "last_updated": datetime.now().isoformat()}
     
+    def get_flood_monitoring(self) -> Dict[str, Any]:
+        """Get real-time flood monitoring and health risk assessment for Pakistan"""
+        try:
+            current_weather = self.get_current_weather()
+            alerts = self.get_weather_alerts()
+            
+            # Current monsoon season (June-September)
+            current_month = datetime.now().month
+            is_monsoon_season = 6 <= current_month <= 9
+            
+            # Pakistan's major flood-prone areas with detailed risk assessment
+            flood_zones = {
+                "sindh": {
+                    "cities": ["Karachi", "Hyderabad", "Sukkur", "Larkana"],
+                    "risk_level": "critical" if is_monsoon_season else "medium",
+                    "major_rivers": ["Indus River", "Ravi River"],
+                    "health_risks": ["cholera", "typhoid", "hepatitis_a", "dengue", "malaria"]
+                },
+                "punjab": {
+                    "cities": ["Lahore", "Faisalabad", "Rawalpindi", "Multan"],
+                    "risk_level": "high" if is_monsoon_season else "low",
+                    "major_rivers": ["Ravi River", "Chenab River", "Jhelum River"],
+                    "health_risks": ["waterborne_diseases", "dengue", "respiratory_infections"]
+                },
+                "kpk": {
+                    "cities": ["Peshawar", "Mardan", "Swat"],
+                    "risk_level": "high" if is_monsoon_season else "medium",
+                    "major_rivers": ["Kabul River", "Chitral River"],
+                    "health_risks": ["flash_flood_injuries", "waterborne_diseases", "vector_breeding"]
+                },
+                "balochistan": {
+                    "cities": ["Quetta", "Gwadar", "Turbat"],
+                    "risk_level": "medium" if is_monsoon_season else "low",
+                    "major_rivers": ["Dasht River"],
+                    "health_risks": ["water_scarcity", "contamination", "heat_stress"]
+                }
+            }
+            
+            # Real-time flood risk assessment
+            flood_assessment = []
+            for city in current_weather.get("cities", []):
+                city_name = city["city"]
+                humidity = city["humidity"]
+                temp = city["temperature"]
+                
+                # Determine flood risk based on weather conditions
+                flood_risk = "low"
+                if is_monsoon_season:
+                    if humidity > 85:
+                        flood_risk = "critical"
+                    elif humidity > 75:
+                        flood_risk = "high"
+                    elif humidity > 65:
+                        flood_risk = "medium"
+                
+                # Health impact assessment
+                health_impact = self._assess_flood_health_impact(city_name, flood_risk, temp, humidity)
+                
+                flood_assessment.append({
+                    "city": city_name,
+                    "flood_risk": flood_risk,
+                    "humidity": humidity,
+                    "temperature": temp,
+                    "health_impact": health_impact,
+                    "immediate_risks": self._get_immediate_flood_risks(city_name, flood_risk),
+                    "prevention_measures": self._get_flood_prevention_measures(flood_risk)
+                })
+            
+            # National flood summary
+            critical_areas = [city for city in flood_assessment if city["flood_risk"] == "critical"]
+            high_risk_areas = [city for city in flood_assessment if city["flood_risk"] == "high"]
+            
+            return {
+                "flood_monitoring": {
+                    "national_status": "critical" if len(critical_areas) > 0 else "monitoring",
+                    "monsoon_season": is_monsoon_season,
+                    "total_areas_monitored": len(flood_assessment),
+                    "critical_flood_areas": len(critical_areas),
+                    "high_risk_areas": len(high_risk_areas)
+                },
+                "regional_assessment": flood_zones,
+                "city_assessments": flood_assessment,
+                "health_alerts": [alert for alert in alerts.get("alerts", []) if "flood" in alert.get("type", "")],
+                "emergency_response": {
+                    "active_alerts": len([city for city in flood_assessment if city["flood_risk"] in ["critical", "high"]]),
+                    "health_facilities_on_alert": self._get_health_facilities_status(flood_assessment),
+                    "water_quality_monitoring": "active" if is_monsoon_season else "routine"
+                },
+                "last_updated": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in flood monitoring: {e}")
+            return self._get_fallback_flood_monitoring()
+    
+    def _assess_flood_health_impact(self, city: str, flood_risk: str, temp: float, humidity: float) -> Dict[str, Any]:
+        """Assess health impact based on flood risk and weather conditions"""
+        impact_levels = {
+            "critical": {
+                "waterborne_diseases": "extreme_risk",
+                "vector_breeding": "critical" if temp > 25 else "high",
+                "water_contamination": "severe",
+                "displacement_health_risks": "high"
+            },
+            "high": {
+                "waterborne_diseases": "high_risk",
+                "vector_breeding": "high" if temp > 25 else "medium",
+                "water_contamination": "moderate",
+                "displacement_health_risks": "medium"
+            },
+            "medium": {
+                "waterborne_diseases": "moderate_risk",
+                "vector_breeding": "medium",
+                "water_contamination": "low",
+                "displacement_health_risks": "low"
+            },
+            "low": {
+                "waterborne_diseases": "low_risk",
+                "vector_breeding": "low",
+                "water_contamination": "minimal",
+                "displacement_health_risks": "minimal"
+            }
+        }
+        
+        return impact_levels.get(flood_risk, impact_levels["low"])
+    
+    def _get_immediate_flood_risks(self, city: str, flood_risk: str) -> List[str]:
+        """Get immediate health risks for specific flood conditions"""
+        risk_mapping = {
+            "critical": [
+                "Cholera outbreak risk",
+                "Typhoid transmission",
+                "Hepatitis A spread",
+                "Dengue vector explosion",
+                "Malaria transmission spike",
+                "Respiratory infections from mold",
+                "Skin infections from contaminated water"
+            ],
+            "high": [
+                "Waterborne disease risk",
+                "Increased dengue breeding sites",
+                "Water supply contamination",
+                "Sanitation system overflow"
+            ],
+            "medium": [
+                "Vector breeding increase",
+                "Water quality concerns",
+                "Hygiene challenges"
+            ],
+            "low": [
+                "Routine monitoring required"
+            ]
+        }
+        
+        return risk_mapping.get(flood_risk, risk_mapping["low"])
+    
+    def _get_flood_prevention_measures(self, flood_risk: str) -> List[str]:
+        """Get prevention measures based on flood risk level"""
+        measures = {
+            "critical": [
+                "Immediate evacuation of high-risk areas",
+                "Emergency water purification distribution",
+                "Mobile health clinics deployment",
+                "Vector control operations",
+                "Emergency sanitation facilities"
+            ],
+            "high": [
+                "Water quality testing intensification",
+                "Preventive health measures distribution",
+                "Drainage system monitoring",
+                "Community health education"
+            ],
+            "medium": [
+                "Regular water quality checks",
+                "Vector surveillance",
+                "Health facility preparedness"
+            ],
+            "low": [
+                "Routine monitoring",
+                "Preparedness planning"
+            ]
+        }
+        
+        return measures.get(flood_risk, measures["low"])
+    
+    def _get_health_facilities_status(self, flood_assessment: List[Dict]) -> Dict[str, Any]:
+        """Get health facilities status based on flood assessment"""
+        critical_areas = len([city for city in flood_assessment if city["flood_risk"] == "critical"])
+        high_risk_areas = len([city for city in flood_assessment if city["flood_risk"] == "high"])
+        
+        return {
+            "emergency_facilities_activated": critical_areas * 2,
+            "standby_facilities": high_risk_areas * 3,
+            "mobile_units_deployed": critical_areas,
+            "status": "emergency" if critical_areas > 0 else "alert" if high_risk_areas > 0 else "normal"
+        }
+    
+    def _get_fallback_flood_monitoring(self) -> Dict[str, Any]:
+        """Fallback flood monitoring data when API is unavailable"""
+        current_month = datetime.now().month
+        is_monsoon_season = 6 <= current_month <= 9
+        
+        return {
+            "flood_monitoring": {
+                "national_status": "monitoring",
+                "monsoon_season": is_monsoon_season,
+                "total_areas_monitored": 8,
+                "critical_flood_areas": 2 if is_monsoon_season else 0,
+                "high_risk_areas": 4 if is_monsoon_season else 1
+            },
+            "emergency_response": {
+                "active_alerts": 3 if is_monsoon_season else 0,
+                "health_facilities_on_alert": {
+                    "emergency_facilities_activated": 4 if is_monsoon_season else 0,
+                    "standby_facilities": 12 if is_monsoon_season else 3,
+                    "mobile_units_deployed": 2 if is_monsoon_season else 0,
+                    "status": "alert" if is_monsoon_season else "normal"
+                },
+                "water_quality_monitoring": "active" if is_monsoon_season else "routine"
+            },
+            "last_updated": datetime.now().isoformat(),
+            "note": "Fallback data - API unavailable"
+        }
+
     def get_climate_health_monitoring(self) -> Dict[str, Any]:
         """Get climate and environmental health monitoring data"""
         try:

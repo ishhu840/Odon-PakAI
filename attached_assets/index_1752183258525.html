@@ -944,9 +944,88 @@
         function initializeMap() {
             const map = L.map('pakistanMap').setView([30.3753, 69.3451], 6);
             
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
+            // Set map bounds to focus only on Pakistan
+            const pakistanBounds = [
+                [23.5, 60.5], // Southwest corner (southern Sindh, western Balochistan)
+                [37.5, 77.5]  // Northeast corner (northern KPK/GB, eastern Punjab)
+            ];
+            map.setMaxBounds(pakistanBounds);
+            map.fitBounds(pakistanBounds, {padding: [10, 10]});
+            
+            // Add multiple tile providers with fallback mechanism
+            let currentTileLayer = null;
+            
+            const tileProviders = [
+                 {
+                     name: 'CartoDB Positron',
+                     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                     attribution: '© OpenStreetMap contributors © CARTO',
+                     subdomains: ['a', 'b', 'c', 'd']
+                 },
+                 {
+                     name: 'OpenStreetMap',
+                     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                     attribution: '© OpenStreetMap contributors',
+                     subdomains: ['a', 'b', 'c']
+                 },
+                 {
+                      name: 'OpenTopoMap',
+                      url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+                      attribution: '© OpenStreetMap contributors, © OpenTopoMap (CC-BY-SA)',
+                      subdomains: ['a', 'b', 'c']
+                  },
+                  {
+                      name: 'Stamen Terrain',
+                      url: 'https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png',
+                      attribution: 'Map tiles by Stamen Design, CC BY 3.0 — Map data © OpenStreetMap contributors',
+                      subdomains: ['a', 'b', 'c']
+                  }
+             ];
+            
+            function addTileLayer(providerIndex = 0) {
+                if (providerIndex >= tileProviders.length) {
+                    console.error('All tile providers failed, using fallback');
+                    return;
+                }
+                
+                const provider = tileProviders[providerIndex];
+                console.log(`Attempting to load tiles from: ${provider.name}`);
+                
+                const tileLayer = L.tileLayer(provider.url, {
+                    attribution: provider.attribution,
+                    maxZoom: 18,
+                    subdomains: provider.subdomains,
+                    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+                    crossOrigin: true,
+                    timeout: 10000
+                });
+                
+                let errorCount = 0;
+                 const maxErrors = 2;
+                
+                tileLayer.on('tileerror', function(error) {
+                    errorCount++;
+                    console.warn(`Tile loading error from ${provider.name} (${errorCount}/${maxErrors}):`, error);
+                    
+                    if (errorCount >= maxErrors) {
+                        console.log(`Too many errors from ${provider.name}, switching to next provider`);
+                        map.removeLayer(tileLayer);
+                        setTimeout(() => {
+                            addTileLayer(providerIndex + 1);
+                        }, 1000);
+                    }
+                });
+                
+                tileLayer.on('tileload', function() {
+                    console.log(`Successfully loaded tile from ${provider.name}`);
+                });
+                
+                currentTileLayer = tileLayer;
+                tileLayer.addTo(map);
+            }
+            
+            // Start with the first tile provider
+            addTileLayer(0);
 
             // Add disease outbreak markers
             const outbreaks = [

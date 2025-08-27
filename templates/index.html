@@ -38,6 +38,9 @@
                         <a class="nav-link" href="#climate"><i class="fas fa-cloud-sun me-1"></i>Climate Data</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="#flood-monitoring"><i class="fas fa-water me-1"></i>Flood Monitor</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="#ai-analysis"><i class="fas fa-brain me-1"></i>AI Analysis</a>
                     </li>
                     <li class="nav-item">
@@ -58,10 +61,11 @@
         <section id="dashboard">
             <div class="row mb-4">
                 <div class="col-12">
-                    <div class="dashboard-card">
+                    <div class="dashboard-card historical-data-card">
                         <div class="card-header">
-                            <i class="fas fa-globe me-2"></i>
-                            National Public Health Status 
+                            <i class="fas fa-history me-2"></i>
+                            Historical Disease Data Overview
+                            <span class="badge bg-info ms-2">Historical Data (2021-2025)</span>
                             <div class="float-end">
                                 <span class="data-source-badge">IDSR</span>
                                 <span class="data-source-badge">WHO</span>
@@ -74,33 +78,56 @@
                             </div>
                         </div>
                         <div class="card-body">
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Historical Overview:</strong> This section shows cumulative disease cases from our surveillance data (2021-2025). 
+                                For current predictions and outbreak forecasts, see the "Comprehensive Disease Forecasts" section below.
+                            </div>
                             <div class="row">
                                 <div class="col-lg-3 col-md-6">
-                                    <div class="stat-card">
+                                    <div class="stat-card historical-stat">
+                                        <div class="historical-indicator">
+                                            <i class="fas fa-calendar-alt me-1"></i>
+                                            <small>2021-2025 Total</small>
+                                        </div>
                                         <div class="stat-value text-danger" id="malaria-cases">
                                             <i class="loading-spinner"></i>
                                         </div>
-                                        <div class="stat-label">Active Malaria Cases</div>
+                                        <div class="stat-label">Malaria Cases Recorded</div>
                                         <div class="mt-2" id="malaria-trend">
                                             <i class="fas fa-arrow-up trend-up me-1"></i>
                                             <small>Loading...</small>
                                         </div>
+                                        <div class="historical-note">
+                                            <small class="text-muted">Peak: Monsoon seasons</small>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-lg-3 col-md-6">
-                                    <div class="stat-card">
+                                    <div class="stat-card historical-stat">
+                                        <div class="historical-indicator">
+                                            <i class="fas fa-calendar-alt me-1"></i>
+                                            <small>Punjab Focus</small>
+                                        </div>
                                         <div class="stat-value text-warning" id="dengue-cases">
                                             <i class="loading-spinner"></i>
                                         </div>
-                                        <div class="stat-label">Dengue Cases (YTD)</div>
+                                        <div class="stat-label">Dengue Cases (Historical)</div>
                                         <div class="mt-2" id="dengue-trend">
                                             <i class="fas fa-arrow-down trend-down me-1"></i>
                                             <small>Loading...</small>
                                         </div>
+                                        <div class="historical-note">
+                                            <small class="text-muted">Hotspots: Rawalpindi, Lahore</small>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-lg-3 col-md-6">
-                                    <div class="stat-card">
+                                    <div class="stat-card historical-stat">
+                                        <div class="historical-indicator">
+                                            <i class="fas fa-calendar-alt me-1"></i>
+                                            <small>All Provinces</small>
+                                        </div>
                                         <div class="stat-value text-info" id="respiratory-cases">
                                             <i class="loading-spinner"></i>
                                         </div>
@@ -109,17 +136,27 @@
                                             <i class="fas fa-minus trend-stable me-1"></i>
                                             <small>Loading...</small>
                                         </div>
+                                        <div class="historical-note">
+                                            <small class="text-muted">Peak: Winter months</small>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-lg-3 col-md-6">
-                                    <div class="stat-card">
-                                        <div class="stat-value text-success" id="vaccination-coverage">
-                                            <i class="loading-spinner"></i>
+                                    <div class="stat-card historical-stat">
+                                        <div class="historical-indicator">
+                                            <i class="fas fa-chart-line me-1"></i>
+                                            <small>Data Period</small>
                                         </div>
-                                        <div class="stat-label">Vaccination Coverage</div>
-                                        <div class="mt-2" id="vaccination-trend">
-                                            <i class="fas fa-arrow-up trend-up me-1"></i>
-                                            <small>Loading...</small>
+                                        <div class="stat-value text-success">
+                                            4+ Years
+                                        </div>
+                                        <div class="stat-label">Surveillance Coverage</div>
+                                        <div class="mt-2">
+                                            <i class="fas fa-check-circle text-success me-1"></i>
+                                            <small>Complete Dataset</small>
+                                        </div>
+                                        <div class="historical-note">
+                                            <small class="text-muted">Weekly IDSR reports</small>
                                         </div>
                                     </div>
                                 </div>
@@ -131,7 +168,7 @@
 
             <!-- Charts and Visualizations -->
             <div class="row">
-                <div class="col-lg-8">
+                <div class="col-lg-6">
                     <div class="dashboard-card">
                         <div class="card-header">
                             <i class="fas fa-chart-line me-2"></i>
@@ -144,14 +181,14 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-4">
+                <div class="col-lg-6">
                     <div class="dashboard-card">
                         <div class="card-header">
                             <i class="fas fa-map-marker-alt me-2"></i>
                             Disease Distribution Map
                         </div>
                         <div class="card-body">
-                            <div id="diseaseMap" class="map-container"></div>
+                            <div id="diseaseMap" class="map-container-large"></div>
                         </div>
                     </div>
                 </div>
@@ -188,13 +225,13 @@
                     <div class="dashboard-card">
                         <div class="card-header">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            Climate Health Alerts
+                            Health & Climate Alerts
                         </div>
                         <div class="card-body">
                             <div id="climate-alerts">
                                 <div class="alert-item">
                                     <i class="fas fa-spinner fa-spin me-2"></i>
-                                    Loading climate alerts...
+                                    Loading health and climate alerts...
                                 </div>
                             </div>
                         </div>
@@ -226,13 +263,13 @@
                     <div class="dashboard-card">
                         <div class="card-header">
                             <i class="fas fa-chart-area me-2"></i>
-                            Scenario Simulations
+                            Outbreak Predictions
                         </div>
                         <div class="card-body">
-                            <div id="scenario-simulations">
-                                <div class="scenario-card">
+                            <div id="outbreak-predictions">
+                                <div class="text-center">
                                     <i class="fas fa-spinner fa-spin me-2"></i>
-                                    Running scenario simulations...
+                                    Loading outbreak predictions...
                                 </div>
                             </div>
                         </div>
@@ -241,27 +278,7 @@
             </div>
         </section>
 
-        <!-- Alerts and Monitoring -->
-        <section id="alerts" class="mt-4">
-            <div class="row">
-                <div class="col-12">
-                    <div class="dashboard-card">
-                        <div class="card-header">
-                            <i class="fas fa-bell me-2"></i>
-                            Active Health Alerts
-                        </div>
-                        <div class="card-body">
-                            <div id="health-alerts">
-                                <div class="alert-item">
-                                    <i class="fas fa-spinner fa-spin me-2"></i>
-                                    Loading health alerts...
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+
 
         <!-- Disease Surveillance & Health Monitoring -->
         <section id="health" class="mt-4">
@@ -301,6 +318,102 @@
             </div>
         </section>
 
+        <!-- Comprehensive Disease Forecasts -->
+        <section class="mt-4">
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="dashboard-card">
+                        <div class="card-header bg-gradient-primary text-white">
+                            <i class="fas fa-crystal-ball me-2"></i>
+                            Comprehensive Disease Forecasts (2-3 Weeks)
+                            <span class="badge bg-light text-dark ms-2">Predictive Analytics</span>
+                        </div>
+                        <div class="card-body">
+                            <!-- Forecast Summary -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <div id="forecast-summary">
+                                        <div class="text-center">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>
+                                            Loading forecast summary...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 14-Day and 21-Day Forecasts -->
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div id="forecast-14-day">
+                                        <div class="text-center">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>
+                                            Loading 14-day forecast...
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div id="forecast-21-day">
+                                        <div class="text-center">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>
+                                            Loading 21-day forecast...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Confidence Metrics -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <div id="confidence-metrics">
+                                        <div class="text-center">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>
+                                            Loading confidence metrics...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Province Forecasts Table -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <div id="province-forecasts-table">
+                                        <div class="text-center">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>
+                                            Loading province forecasts...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Outbreak Probability Heatmap -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <div id="outbreak-probability-heatmap">
+                                        <div class="text-center">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>
+                                            Loading outbreak probability heatmap...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Prediction Charts -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <div id="prediction-charts">
+                                        <div class="text-center">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>
+                                            Loading prediction charts...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Climate & Environmental Health Monitoring -->
         <section class="mt-4">
             <div class="row">
@@ -315,6 +428,122 @@
                                 <div class="text-center">
                                     <i class="fas fa-spinner fa-spin me-2"></i>
                                     Loading climate monitoring data...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Flood Monitoring & Health Risk Assessment -->
+        <section class="mt-4">
+            <div class="row">
+                <div class="col-12">
+                    <div class="dashboard-card flood-monitoring-card">
+                        <div class="card-header">
+                            <i class="fas fa-water me-2"></i>
+                            Real-Time Flood Monitoring & Health Risk Assessment
+                            <span class="badge bg-warning ms-2" id="flood-season-indicator">Loading...</span>
+                            <div class="float-end">
+                                <span class="data-source-badge">PMD</span>
+                                <span class="data-source-badge">NDMA</span>
+                                <span class="data-source-badge">AI Analysis</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-4">
+                                <div class="col-lg-3 col-md-6 mb-3">
+                                    <div class="stat-card flood-stat">
+                                        <div class="stat-value text-primary" id="flood-national-status">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                        </div>
+                                        <div class="stat-label">National Flood Status</div>
+                                        <div class="mt-2" id="flood-areas-monitored">
+                                            <small>Loading...</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-6 mb-3">
+                                    <div class="stat-card flood-stat">
+                                        <div class="stat-value text-danger" id="critical-flood-areas">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                        </div>
+                                        <div class="stat-label">Critical Flood Areas</div>
+                                        <div class="mt-2" id="critical-health-risks">
+                                            <small>Loading...</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-6 mb-3">
+                                    <div class="stat-card flood-stat">
+                                        <div class="stat-value text-warning" id="high-risk-areas">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                        </div>
+                                        <div class="stat-label">High Risk Areas</div>
+                                        <div class="mt-2" id="health-facilities-alert">
+                                            <small>Loading...</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-6 mb-3">
+                                    <div class="stat-card flood-stat">
+                                        <div class="stat-value text-info" id="active-alerts">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                        </div>
+                                        <div class="stat-label">Active Health Alerts</div>
+                                        <div class="mt-2" id="water-quality-status">
+                                            <small>Loading...</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-lg-8">
+                                    <div class="flood-assessment-panel">
+                                        <h5 class="mb-3">
+                                            <i class="fas fa-map-marked-alt me-2"></i>
+                                            City-wise Flood Risk Assessment
+                                        </h5>
+                                        <div id="city-flood-assessment">
+                                            <div class="text-center">
+                                                <i class="fas fa-spinner fa-spin me-2"></i>
+                                                Loading city assessments...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4">
+                                    <div class="emergency-response-panel">
+                                        <h5 class="mb-3">
+                                            <i class="fas fa-ambulance me-2"></i>
+                                            Emergency Response Status
+                                        </h5>
+                                        <div id="emergency-response">
+                                            <div class="text-center">
+                                                <i class="fas fa-spinner fa-spin me-2"></i>
+                                                Loading response status...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-4">
+                                <div class="col-12">
+                                    <div class="regional-assessment-panel">
+                                        <h5 class="mb-3">
+                                            <i class="fas fa-globe-asia me-2"></i>
+                                            Regional Flood Risk Assessment
+                                        </h5>
+                                        <div id="regional-flood-assessment">
+                                            <div class="text-center">
+                                                <i class="fas fa-spinner fa-spin me-2"></i>
+                                                Loading regional assessment...
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -7,7 +7,7 @@ from ai_analysis import AIAnalyzer
 from weather_service import WeatherService
 from scheduler import DataScheduler
 import json
-from datetime import datetime
+from datetime import datetime as dt
 from dotenv import load_dotenv
 
 # Configure logging
@@ -26,7 +26,7 @@ CORS(app)
 # Initialize services
 try:
     data_processor = HealthDataProcessor()
-    ai_analyzer = AIAnalyzer()
+    ai_analyzer = AIAnalyzer(data_processor)
     weather_service = WeatherService()
     scheduler = DataScheduler(data_processor, ai_analyzer, weather_service)
     
@@ -191,8 +191,60 @@ def get_weather_alerts():
         return jsonify({
             'alerts': [],
             'count': 0,
-            'last_updated': datetime.now().isoformat()
+            'last_updated': dt.now().isoformat()
         }), 500
+
+@app.route('/api/flood/monitoring')
+def get_flood_monitoring():
+    """Get real-time flood monitoring and health risk assessment"""
+    try:
+        if not weather_service:
+            return jsonify({"error": "Weather service not available"}), 500
+            
+        flood_data = weather_service.get_flood_monitoring()
+        return jsonify(flood_data)
+    except Exception as e:
+        logger.error(f"Error getting flood monitoring data: {e}")
+        return jsonify({"error": "Failed to get flood monitoring data"}), 500
+
+@app.route('/api/outbreak-predictions')
+def get_outbreak_predictions():
+    """Get outbreak predictions from the AI model"""
+    try:
+        if not ai_analyzer:
+            return jsonify({"error": "AI analyzer not available"}), 500
+        
+        predictions = ai_analyzer.predict_outbreaks()
+        return jsonify(predictions)
+    except Exception as e:
+        logger.error(f"Error getting outbreak predictions: {e}")
+        return jsonify({"error": "Failed to fetch outbreak predictions"}), 500
+
+@app.route('/api/comprehensive-forecasts')
+def get_comprehensive_forecasts():
+    """Get comprehensive 2-3 week disease forecasts with detailed predictions"""
+    try:
+        if not ai_analyzer:
+            return jsonify({"error": "AI analyzer not available"}), 500
+        
+        forecasts = ai_analyzer.get_comprehensive_forecasts()
+        return jsonify(forecasts)
+    except Exception as e:
+        logger.error(f"Error getting comprehensive forecasts: {e}")
+        return jsonify({"error": "Failed to fetch comprehensive forecasts"}), 500
+
+@app.route('/api/model-status')
+def get_model_status():
+    """Get information about the trained model"""
+    try:
+        if not ai_analyzer:
+            return jsonify({"error": "AI analyzer not available"}), 500
+        
+        model_info = ai_analyzer.get_model_info()
+        return jsonify(model_info)
+    except Exception as e:
+        logger.error(f"Error getting model status: {e}")
+        return jsonify({"error": "Failed to get model status"}), 500
 
 @app.route('/api/refresh-data', methods=['POST'])
 def refresh_data():

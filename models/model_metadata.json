@@ -1,0 +1,20 @@
+{
+  "rmse": 95776.05345805391,
+  "training_samples": 322,
+  "test_samples": 81,
+  "features_used": [
+    "avg_age",
+    "day",
+    "lat_x",
+    "lon_x",
+    "male_ratio",
+    "month",
+    "week",
+    "year",
+    "lat_y",
+    "lon_y",
+    "timezone_offset"
+  ],
+  "training_date": "2025-08-27T13:19:38.827328",
+  "model_version": "1.0"
+}
