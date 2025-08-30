@@ -220,6 +220,19 @@ def get_outbreak_predictions():
         logger.error(f"Error getting outbreak predictions: {e}")
         return jsonify({"error": "Failed to fetch outbreak predictions"}), 500
 
+@app.route('/api/critical-outbreak-alerts')
+def get_critical_outbreak_alerts():
+    """Get critical outbreak alerts for next 24-72 hours"""
+    try:
+        if not ai_analyzer:
+            return jsonify({"error": "AI analyzer not available"}), 500
+        
+        critical_alerts = ai_analyzer.predict_critical_outbreaks()
+        return jsonify(critical_alerts)
+    except Exception as e:
+        logger.error(f"Error getting critical outbreak alerts: {e}")
+        return jsonify({"error": "Failed to fetch critical outbreak alerts"}), 500
+
 @app.route('/api/comprehensive-forecasts')
 def get_comprehensive_forecasts():
     """Get comprehensive 2-3 week disease forecasts with detailed predictions"""

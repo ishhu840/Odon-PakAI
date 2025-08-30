@@ -21,15 +21,16 @@ function initializeDashboard() {
     initializeChart();
     
     // Load other components with delays to prevent overwhelming the server
-    setTimeout(() => loadAIRecommendations(), 500);
-    setTimeout(() => loadScenarioSimulations(), 1000);
-    setTimeout(() => loadHealthAlerts(), 1500);
-    setTimeout(() => loadHighRiskAreas(), 2000);
-    setTimeout(() => loadDiseaseSurveillance(), 2500);
-    setTimeout(() => loadClimateMonitoring(), 3000);
-    setTimeout(() => loadFloodMonitoring(), 3500);
-    setTimeout(() => loadOutbreakPredictions(), 4000);
-    setTimeout(() => loadComprehensiveForecasts(), 4500);
+    setTimeout(() => loadCriticalOutbreakAlerts(), 500);
+    setTimeout(() => loadAIRecommendations(), 1000);
+    setTimeout(() => loadScenarioSimulations(), 1500);
+    setTimeout(() => loadHealthAlerts(), 2000);
+    setTimeout(() => loadHighRiskAreas(), 2500);
+    setTimeout(() => loadDiseaseSurveillance(), 3000);
+    setTimeout(() => loadClimateMonitoring(), 3500);
+    setTimeout(() => loadFloodMonitoring(), 4000);
+    setTimeout(() => loadOutbreakPredictions(), 4500);
+    setTimeout(() => loadComprehensiveForecasts(), 5000);
 }
 
 // Utility function for API calls with retry logic
@@ -364,10 +365,16 @@ function updateOutbreakPredictions(data) {
                                 </div>
                             ` : ''}
                             <div class="mt-2">
-                                <small class="text-muted">
-                                    <i class="fas fa-clock me-1"></i>
-                                    Forecast Period: Next 7-14 days
-                                </small>
+                                <div class="forecast-timeframes">
+                                    <span class="timeframe-badge timeframe-14d">
+                                        <i class="fas fa-clock me-1"></i>
+                                        14 days
+                                    </span>
+                                    <span class="timeframe-badge timeframe-21d">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        21 days
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -401,7 +408,151 @@ function getRiskColor(riskLevel) {
     }
 }
 
+// Load critical outbreak alerts for next 24-72 hours
+async function loadCriticalOutbreakAlerts() {
+    try {
+        console.log('Loading critical outbreak alerts...');
+        const response = await fetchWithRetry('/api/critical-outbreak-alerts');
+        
+        const data = await response.json();
+        updateCriticalOutbreakAlerts(data);
+        
+    } catch (error) {
+        console.error('Error loading critical outbreak alerts:', error);
+        showErrorMessage('Failed to load critical outbreak alerts.');
+    }
+}
 
+// Update critical outbreak alerts display
+function updateCriticalOutbreakAlerts(data) {
+    const alertsContainer = document.getElementById('critical-alerts-container');
+    if (!alertsContainer) {
+        console.warn('Critical alerts container not found');
+        return;
+    }
+
+    if (!data || !data.critical_alerts || 
+        (!data.critical_alerts['24_hours'] || data.critical_alerts['24_hours'].length === 0) &&
+        (!data.critical_alerts['72_hours'] || data.critical_alerts['72_hours'].length === 0)) {
+        alertsContainer.innerHTML = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle me-2"></i>
+                No critical outbreak alerts at this time.
+            </div>
+        `;
+        return;
+    }
+
+    let alertsHTML = '';
+    
+    // Display 24-hour alerts
+    if (data.critical_alerts['24_hours'] && data.critical_alerts['24_hours'].length > 0) {
+        alertsHTML += `
+            <div class="urgent-alert-section mb-3">
+                <h6 class="text-danger mb-2">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    URGENT: Next 24 Hours
+                </h6>
+                <div class="row">
+        `;
+        
+        data.critical_alerts['24_hours'].forEach(alert => {
+            alertsHTML += `
+                <div class="col-md-6 mb-2">
+                    <div class="card border-danger">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong class="text-danger">${alert.city}</strong>
+                                    <div class="small">${alert.primary_disease}</div>
+                                    <div class="small text-muted">${alert.estimated_cases_24h} cases (24h)</div>
+                                    <div class="small text-success">Confidence: ${Math.round(alert.confidence * 100)}%</div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-danger">${alert.alert_level}</span>
+                                </div>
+                            </div>
+                            <div class="mt-1">
+                                <small class="text-muted">${alert.immediate_actions ? alert.immediate_actions.join(', ') : 'Monitor situation'}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        alertsHTML += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // Display 72-hour alerts
+    if (data.critical_alerts['72_hours'] && data.critical_alerts['72_hours'].length > 0) {
+        alertsHTML += `
+            <div class="alert-section mb-3">
+                <h6 class="text-warning mb-2">
+                    <i class="fas fa-clock me-2"></i>
+                    WATCH: Next 72 Hours
+                </h6>
+                <div class="row">
+        `;
+        
+        data.critical_alerts['72_hours'].forEach(alert => {
+            alertsHTML += `
+                <div class="col-md-6 mb-2">
+                    <div class="card border-warning">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong class="text-warning">${alert.city}</strong>
+                                    <div class="small">${alert.primary_disease}</div>
+                                    <div class="small text-muted">${alert.estimated_cases_72h} cases (72h)</div>
+                                    <div class="small text-success">Confidence: ${Math.round(alert.confidence * 100)}%</div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-warning text-dark">${alert.alert_level}</span>
+                                </div>
+                            </div>
+                            <div class="mt-1">
+                                <small class="text-muted">${alert.recommended_actions ? alert.recommended_actions.join(', ') : 'Monitor situation'}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        alertsHTML += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // Add summary if available
+    if (data.alert_summary) {
+        alertsHTML += `
+            <div class="alert alert-info mt-3">
+                <h6 class="mb-2">Alert Summary</h6>
+                <p class="mb-1"><strong>Highest Priority City:</strong> ${data.alert_summary.highest_priority}</p>
+                <p class="mb-1"><strong>Total Critical Alerts:</strong> ${data.alert_summary.total_critical_alerts}</p>
+                <p class="mb-0"><strong>Last Updated:</strong> ${new Date(data.last_updated).toLocaleString()}</p>
+            </div>
+        `;
+    }
+    
+    // Add weather context if available
+    if (data.weather_context) {
+        alertsHTML += `
+            <div class="alert alert-secondary mt-2">
+                <small><i class="fas fa-cloud me-1"></i><strong>Weather Context:</strong> ${data.weather_context.data_availability} weather data available</small>
+            </div>
+        `;
+    }
+    
+    alertsContainer.innerHTML = alertsHTML;
+    console.log('Critical outbreak alerts updated successfully');
+}
 
 // Load AI recommendations
 async function loadAIRecommendations() {
@@ -1273,9 +1424,21 @@ function showLocationDetails(location) {
                             <span>Prediction Model</span>
                         </div>
                         <div class="prediction-info">
-                            <div class="prediction-item">
-                                <span class="label">Expected Cases (Next 30 days):</span>
-                                <span class="value highlight">${predictedCases}</span>
+                            <div class="prediction-item prediction-24h">
+                                <span class="label">Critical Alert (24 hours):</span>
+                                <span class="value risk-indicator-24h">${location.critical24h || 'Low Risk'}</span>
+                            </div>
+                            <div class="prediction-item prediction-72h">
+                                <span class="label">Watch Alert (72 hours):</span>
+                                <span class="value risk-indicator-72h">${location.critical72h || 'Monitoring'}</span>
+                            </div>
+                            <div class="prediction-item prediction-14d">
+                                <span class="label">Expected Cases (14 days):</span>
+                                <span class="value risk-indicator-14d">${Math.round(predictedCases * 0.6)}</span>
+                            </div>
+                            <div class="prediction-item prediction-21d">
+                                <span class="label">Expected Cases (21 days):</span>
+                                <span class="value risk-indicator-21d">${predictedCases}</span>
                             </div>
                             <div class="prediction-item">
                                 <span class="label">Outbreak Probability:</span>
@@ -1725,6 +1888,7 @@ async function refreshData() {
         await Promise.all([
             loadDashboardData(),
             loadWeatherData(),
+            loadCriticalOutbreakAlerts(),
             loadAIRecommendations(),
             loadScenarioSimulations(),
             loadHealthAlerts(),

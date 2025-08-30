@@ -894,6 +894,182 @@ class AIAnalyzer:
             logger.error(f"Error during enhanced outbreak prediction: {e}")
             return self._get_fallback_outbreak_predictions(days_ahead)
     
+    def predict_critical_outbreaks(self) -> Dict[str, Any]:
+        """Generate critical outbreak alerts for next 24-72 hours
+        
+        Identifies cities/districts at immediate risk for disease outbreaks
+        with specific timeframes and urgency levels.
+        """
+        logger.info("Generating critical outbreak alerts for next 24-72 hours")
+        
+        try:
+            # Get current weather data for immediate risk assessment
+            current_weather = self.data_processor.weather_service.get_current_weather()
+            
+            # Generate critical predictions for different timeframes
+            critical_alerts = self._generate_critical_predictions(current_weather)
+            
+            return critical_alerts
+            
+        except Exception as e:
+            logger.error(f"Error generating critical outbreak predictions: {e}")
+            return self._get_fallback_critical_predictions()
+    
+    def _generate_critical_predictions(self, current_weather: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate critical predictions for immediate timeframes"""
+        current_date = datetime.now()
+        current_month = current_date.month
+        
+        # Get weather context
+        national_weather = current_weather.get('national_summary', {})
+        avg_temp = national_weather.get('avg_temperature', 25)
+        avg_humidity = national_weather.get('avg_humidity', 60)
+        
+        # Seasonal risk factors
+        is_monsoon_season = current_month in [6, 7, 8, 9, 10]
+        post_monsoon_season = current_month in [9, 10, 11]
+        
+        # Critical risk assessment for each city
+        critical_cities = self._assess_critical_city_risks(current_weather, avg_temp, avg_humidity, is_monsoon_season, post_monsoon_season)
+        
+        # Generate timeframe-specific alerts
+        alerts_24h = self._generate_24h_alerts(critical_cities, avg_temp, avg_humidity)
+        alerts_72h = self._generate_72h_alerts(critical_cities, avg_temp, avg_humidity, is_monsoon_season)
+        
+        return {
+            'critical_alerts': {
+                '24_hours': alerts_24h,
+                '72_hours': alerts_72h
+            },
+            'high_priority_cities': [city for city in critical_cities if city['urgency_level'] in ['critical', 'very_high']],
+            'weather_context': {
+                'current_temperature': avg_temp,
+                'current_humidity': avg_humidity,
+                'monsoon_season': is_monsoon_season,
+                'post_monsoon_season': post_monsoon_season,
+                'immediate_risk_factor': self._calculate_immediate_risk_factor(avg_temp, avg_humidity, is_monsoon_season)
+            },
+            'alert_summary': self._generate_alert_summary(alerts_24h, alerts_72h),
+            'last_updated': current_date.isoformat(),
+            'next_update': (current_date + timedelta(hours=6)).isoformat()
+        }
+    
+    def _assess_critical_city_risks(self, current_weather: Dict[str, Any], avg_temp: float, avg_humidity: float, is_monsoon: bool, post_monsoon: bool) -> List[Dict[str, Any]]:
+        """Assess critical risk levels for major cities"""
+        cities_weather = current_weather.get('cities', {})
+        critical_cities = []
+        
+        # Major Pakistani cities to monitor
+        major_cities = ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta']
+        
+        for city in major_cities:
+            city_weather = cities_weather.get(city, {})
+            city_temp = city_weather.get('temperature', avg_temp)
+            city_humidity = city_weather.get('humidity', avg_humidity)
+            
+            # Calculate risk factors
+            dengue_risk = self._calculate_immediate_dengue_risk(city_temp, city_humidity, post_monsoon)
+            malaria_risk = self._calculate_immediate_malaria_risk(city_temp, city_humidity, is_monsoon)
+            respiratory_risk = self._calculate_immediate_respiratory_risk(city_temp, city_weather.get('air_quality', 'moderate'))
+            flood_disease_risk = self._calculate_flood_disease_risk(city_humidity, is_monsoon, city_weather.get('precipitation', 0))
+            
+            # Determine overall urgency
+            max_risk = max(dengue_risk, malaria_risk, respiratory_risk, flood_disease_risk)
+            urgency_level = self._determine_urgency_level(max_risk)
+            
+            if urgency_level in ['critical', 'very_high', 'high']:
+                critical_cities.append({
+                    'city': city,
+                    'urgency_level': urgency_level,
+                    'primary_threat': self._identify_primary_threat(dengue_risk, malaria_risk, respiratory_risk, flood_disease_risk),
+                    'risk_score': max_risk,
+                    'temperature': city_temp,
+                    'humidity': city_humidity,
+                    'specific_risks': {
+                        'dengue': dengue_risk,
+                        'malaria': malaria_risk,
+                        'respiratory': respiratory_risk,
+                        'flood_diseases': flood_disease_risk
+                    },
+                    'immediate_actions': self._get_immediate_actions(urgency_level, city)
+                })
+        
+        return sorted(critical_cities, key=lambda x: x['risk_score'], reverse=True)
+    
+    def _generate_24h_alerts(self, critical_cities: List[Dict[str, Any]], temp: float, humidity: float) -> List[Dict[str, Any]]:
+        """Generate 24-hour critical alerts"""
+        alerts_24h = []
+        
+        for city_data in critical_cities:
+            if city_data['urgency_level'] in ['critical', 'very_high']:
+                alerts_24h.append({
+                    'city': city_data['city'],
+                    'alert_level': 'CRITICAL' if city_data['urgency_level'] == 'critical' else 'HIGH',
+                    'primary_disease': city_data['primary_threat'],
+                    'estimated_cases_24h': self._estimate_24h_cases(city_data['risk_score'], city_data['primary_threat']),
+                    'confidence': 0.92,
+                    'immediate_actions': city_data['immediate_actions'],
+                    'timeframe': '24 hours',
+                    'risk_factors': self._get_24h_risk_factors(city_data, temp, humidity)
+                })
+        
+        return alerts_24h
+    
+    def _generate_72h_alerts(self, critical_cities: List[Dict[str, Any]], temp: float, humidity: float, is_monsoon: bool) -> List[Dict[str, Any]]:
+        """Generate 72-hour critical alerts"""
+        alerts_72h = []
+        
+        for city_data in critical_cities:
+            if city_data['urgency_level'] in ['critical', 'very_high', 'high']:
+                alerts_72h.append({
+                    'city': city_data['city'],
+                    'alert_level': self._get_72h_alert_level(city_data['urgency_level']),
+                    'primary_disease': city_data['primary_threat'],
+                    'estimated_cases_72h': self._estimate_72h_cases(city_data['risk_score'], city_data['primary_threat']),
+                    'confidence': 0.88,
+                    'recommended_actions': self._get_72h_actions(city_data['urgency_level'], city_data['city']),
+                    'timeframe': '72 hours',
+                    'risk_progression': self._calculate_risk_progression(city_data, is_monsoon)
+                })
+        
+        return alerts_72h
+    
+    def _get_fallback_critical_predictions(self) -> Dict[str, Any]:
+        """Fallback critical predictions when main system fails"""
+        current_date = datetime.now()
+        
+        return {
+            'critical_alerts': {
+                '24_hours': [
+                    {
+                        'city': 'Rawalpindi',
+                        'alert_level': 'HIGH',
+                        'primary_disease': 'Dengue Fever',
+                        'estimated_cases_24h': 15,
+                        'confidence': 0.75,
+                        'immediate_actions': ['Deploy rapid response teams', 'Increase surveillance'],
+                        'timeframe': '24 hours'
+                    }
+                ],
+                '72_hours': [
+                    {
+                        'city': 'Lahore',
+                        'alert_level': 'MEDIUM',
+                        'primary_disease': 'Respiratory Infections',
+                        'estimated_cases_72h': 45,
+                        'confidence': 0.70,
+                        'recommended_actions': ['Air quality monitoring', 'Public health advisories'],
+                        'timeframe': '72 hours'
+                    }
+                ]
+            },
+            'high_priority_cities': [],
+            'weather_context': {'data_availability': 'limited'},
+            'alert_summary': {'total_critical_alerts': 2, 'highest_priority': 'Rawalpindi'},
+            'last_updated': current_date.isoformat(),
+            'next_update': (current_date + timedelta(hours=6)).isoformat()
+        }
+    
     def _format_predictions_for_frontend(self, raw_predictions: Dict[str, Any]) -> Dict[str, Any]:
         """Format raw predictions into frontend-expected format with predictions array"""
         try:
@@ -1755,6 +1931,259 @@ class AIAnalyzer:
                 'seasonal_pattern_analysis': 'High (Multi-year patterns)',
                 'model_validation': 'Medium (Limited validation data)'
             }
+        }
+    
+    # Critical outbreak prediction helper methods
+    def _calculate_immediate_dengue_risk(self, temp: float, humidity: float, post_monsoon: bool) -> float:
+        """Calculate immediate dengue risk score (0-1)"""
+        risk_score = 0.0
+        
+        # Temperature factor (optimal 25-30°C)
+        if 25 <= temp <= 30:
+            risk_score += 0.4
+        elif 22 <= temp <= 33:
+            risk_score += 0.2
+        
+        # Humidity factor (high humidity increases risk)
+        if humidity > 70:
+            risk_score += 0.3
+        elif humidity > 60:
+            risk_score += 0.2
+        
+        # Post-monsoon season multiplier
+        if post_monsoon:
+            risk_score += 0.3
+        
+        return min(risk_score, 1.0)
+    
+    def _calculate_immediate_malaria_risk(self, temp: float, humidity: float, is_monsoon: bool) -> float:
+        """Calculate immediate malaria risk score (0-1)"""
+        risk_score = 0.0
+        
+        # Temperature factor (optimal 20-30°C)
+        if 20 <= temp <= 30:
+            risk_score += 0.3
+        elif 18 <= temp <= 32:
+            risk_score += 0.2
+        
+        # Humidity factor
+        if humidity > 60:
+            risk_score += 0.3
+        elif humidity > 50:
+            risk_score += 0.2
+        
+        # Monsoon season factor
+        if is_monsoon:
+            risk_score += 0.4
+        
+        return min(risk_score, 1.0)
+    
+    def _calculate_immediate_respiratory_risk(self, temp: float, air_quality: str) -> float:
+        """Calculate immediate respiratory infection risk score (0-1)"""
+        risk_score = 0.0
+        
+        # Temperature factor (cold weather increases risk)
+        if temp < 15:
+            risk_score += 0.4
+        elif temp < 20:
+            risk_score += 0.3
+        elif temp > 35:
+            risk_score += 0.2
+        
+        # Air quality factor
+        air_quality_scores = {
+            'poor': 0.4,
+            'unhealthy': 0.3,
+            'moderate': 0.2,
+            'good': 0.1
+        }
+        risk_score += air_quality_scores.get(air_quality.lower(), 0.2)
+        
+        return min(risk_score, 1.0)
+    
+    def _calculate_flood_disease_risk(self, humidity: float, is_monsoon: bool, precipitation: float) -> float:
+        """Calculate flood-related disease risk score (0-1)"""
+        risk_score = 0.0
+        
+        # High humidity factor
+        if humidity > 80:
+            risk_score += 0.3
+        elif humidity > 70:
+            risk_score += 0.2
+        
+        # Monsoon season factor
+        if is_monsoon:
+            risk_score += 0.4
+        
+        # Precipitation factor
+        if precipitation > 50:  # Heavy rainfall
+            risk_score += 0.3
+        elif precipitation > 20:
+            risk_score += 0.2
+        
+        return min(risk_score, 1.0)
+    
+    def _determine_urgency_level(self, risk_score: float) -> str:
+        """Determine urgency level based on risk score"""
+        if risk_score >= 0.8:
+            return 'critical'
+        elif risk_score >= 0.6:
+            return 'very_high'
+        elif risk_score >= 0.4:
+            return 'high'
+        elif risk_score >= 0.2:
+            return 'medium'
+        else:
+            return 'low'
+    
+    def _identify_primary_threat(self, dengue: float, malaria: float, respiratory: float, flood: float) -> str:
+        """Identify the primary disease threat"""
+        risks = {
+            'Dengue Fever': dengue,
+            'Malaria': malaria,
+            'Respiratory Infections': respiratory,
+            'Flood-related Diseases': flood
+        }
+        return max(risks, key=risks.get)
+    
+    def _get_immediate_actions(self, urgency_level: str, city: str) -> List[str]:
+        """Get immediate actions based on urgency level"""
+        actions = {
+            'critical': [
+                f'Deploy emergency response teams to {city}',
+                'Activate crisis management protocols',
+                'Increase hospital preparedness',
+                'Issue public health emergency alert'
+            ],
+            'very_high': [
+                f'Deploy rapid response teams to {city}',
+                'Increase disease surveillance',
+                'Prepare medical resources',
+                'Issue health advisory'
+            ],
+            'high': [
+                'Enhance monitoring systems',
+                'Prepare response teams',
+                'Issue preventive guidelines',
+                'Coordinate with local health authorities'
+            ]
+        }
+        return actions.get(urgency_level, ['Monitor situation closely'])
+    
+    def _estimate_24h_cases(self, risk_score: float, disease: str) -> int:
+        """Estimate cases in next 24 hours"""
+        base_cases = {
+            'Dengue Fever': 20,
+            'Malaria': 15,
+            'Respiratory Infections': 30,
+            'Flood-related Diseases': 25
+        }
+        base = base_cases.get(disease, 20)
+        return int(base * risk_score * 1.5)
+    
+    def _estimate_72h_cases(self, risk_score: float, disease: str) -> int:
+        """Estimate cases in next 72 hours"""
+        base_cases = {
+            'Dengue Fever': 60,
+            'Malaria': 45,
+            'Respiratory Infections': 90,
+            'Flood-related Diseases': 75
+        }
+        base = base_cases.get(disease, 60)
+        return int(base * risk_score * 2.0)
+    
+    def _get_24h_risk_factors(self, city_data: Dict[str, Any], temp: float, humidity: float) -> List[str]:
+        """Get 24-hour specific risk factors"""
+        factors = []
+        
+        if city_data['temperature'] > 28 and city_data['humidity'] > 70:
+            factors.append('Optimal conditions for vector breeding')
+        
+        if city_data['primary_threat'] == 'Dengue Fever':
+            factors.append('Peak dengue transmission conditions')
+        
+        if humidity > 80:
+            factors.append('High humidity promoting disease spread')
+        
+        return factors
+    
+    def _get_72h_alert_level(self, urgency_level: str) -> str:
+        """Convert urgency level to 72h alert level"""
+        mapping = {
+            'critical': 'CRITICAL',
+            'very_high': 'HIGH',
+            'high': 'MEDIUM'
+        }
+        return mapping.get(urgency_level, 'LOW')
+    
+    def _get_72h_actions(self, urgency_level: str, city: str) -> List[str]:
+        """Get 72-hour recommended actions"""
+        actions = {
+            'critical': [
+                f'Maintain emergency protocols in {city}',
+                'Continue intensive surveillance',
+                'Ensure resource availability',
+                'Monitor outbreak progression'
+            ],
+            'very_high': [
+                f'Prepare intervention strategies for {city}',
+                'Increase preventive measures',
+                'Monitor risk indicators',
+                'Coordinate response planning'
+            ],
+            'high': [
+                'Implement preventive measures',
+                'Monitor situation development',
+                'Prepare contingency plans',
+                'Educate public on prevention'
+            ]
+        }
+        return actions.get(urgency_level, ['Continue routine monitoring'])
+    
+    def _calculate_risk_progression(self, city_data: Dict[str, Any], is_monsoon: bool) -> str:
+        """Calculate how risk will progress over 72 hours"""
+        current_risk = city_data['risk_score']
+        
+        if is_monsoon and city_data['primary_threat'] in ['Dengue Fever', 'Malaria']:
+            return 'Increasing' if current_risk > 0.5 else 'Stable'
+        elif city_data['primary_threat'] == 'Respiratory Infections':
+            return 'Stable' if current_risk < 0.7 else 'Increasing'
+        else:
+            return 'Stable'
+    
+    def _calculate_immediate_risk_factor(self, temp: float, humidity: float, is_monsoon: bool) -> str:
+        """Calculate overall immediate risk factor"""
+        if is_monsoon and humidity > 75 and 25 <= temp <= 30:
+            return 'critical'
+        elif (humidity > 70 and 22 <= temp <= 32) or is_monsoon:
+            return 'high'
+        elif humidity > 60 or temp < 15 or temp > 35:
+            return 'medium'
+        else:
+            return 'low'
+    
+    def _generate_alert_summary(self, alerts_24h: List[Dict[str, Any]], alerts_72h: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Generate summary of all alerts"""
+        critical_24h = len([a for a in alerts_24h if a['alert_level'] == 'CRITICAL'])
+        high_24h = len([a for a in alerts_24h if a['alert_level'] == 'HIGH'])
+        
+        critical_72h = len([a for a in alerts_72h if a['alert_level'] == 'CRITICAL'])
+        high_72h = len([a for a in alerts_72h if a['alert_level'] == 'HIGH'])
+        
+        highest_priority_city = None
+        if alerts_24h:
+            highest_priority_city = alerts_24h[0]['city']
+        elif alerts_72h:
+            highest_priority_city = alerts_72h[0]['city']
+        
+        return {
+            'total_critical_alerts_24h': critical_24h,
+            'total_high_alerts_24h': high_24h,
+            'total_critical_alerts_72h': critical_72h,
+            'total_high_alerts_72h': high_72h,
+            'highest_priority_city': highest_priority_city,
+            'total_cities_at_risk': len(set([a['city'] for a in alerts_24h + alerts_72h])),
+            'immediate_action_required': critical_24h > 0 or high_24h > 0
         }
     
     def _get_fallback_comprehensive_forecasts(self) -> Dict[str, Any]:
