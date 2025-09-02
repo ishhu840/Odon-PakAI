@@ -1,1 +1,5 @@
 .env
+# Large data files
+*.xlsx
+denguedata/Patieints.xlsx
+nihdata/
