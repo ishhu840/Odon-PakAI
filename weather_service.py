@@ -3,6 +3,7 @@ import requests
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,30 @@ class WeatherService:
             {"name": "Rawalpindi", "lat": 33.5651, "lon": 73.0169},
             {"name": "Multan", "lat": 30.1575, "lon": 71.5249},
             {"name": "Peshawar", "lat": 34.0151, "lon": 71.5249},
-            {"name": "Quetta", "lat": 30.1798, "lon": 66.9750}
+            {"name": "Quetta", "lat": 30.1798, "lon": 66.9750},
+            {"name": "Larkana", "lat": 27.5590, "lon": 68.2123},
+            {"name": "Hyderabad", "lat": 25.3960, "lon": 68.3578},
+            {"name": "Gujranwala", "lat": 32.1877, "lon": 74.1945}
         ]
+        
+        # Disease risk thresholds
+        self.disease_thresholds = {
+            'dengue': {
+                'temperature': {'min': 25, 'max': 35, 'critical': 40},
+                'humidity': {'min': 60, 'max': 80, 'critical': 85}
+            },
+            'malaria': {
+                'temperature': {'min': 20, 'max': 30, 'critical': 35},
+                'humidity': {'min': 60, 'max': 90, 'critical': 95}
+            },
+            'respiratory': {
+                'temperature': {'critical_high': 40, 'critical_low': 10},
+                'humidity': {'critical_low': 30}
+            },
+            'heat_stroke': {
+                'temperature': {'high': 38, 'critical': 42, 'extreme': 45}
+            }
+        }
         
         if not self.api_key:
             logger.warning("OpenWeatherMap API key not found. Weather features will be limited.")
@@ -74,16 +97,24 @@ class WeatherService:
             
             data = response.json()
             
+            temperature = data["main"]["temp"]
+            humidity = data["main"]["humidity"]
+            
+            # Calculate disease risks
+            disease_analysis = self._analyze_disease_risks(city["name"], temperature, humidity)
+            
             return {
                 "city": city["name"],
-                "temperature": data["main"]["temp"],
-                "humidity": data["main"]["humidity"],
+                "temperature": temperature,
+                "humidity": humidity,
                 "pressure": data["main"]["pressure"],
                 "description": data["weather"][0]["description"],
                 "wind_speed": data["wind"]["speed"],
                 "visibility": data.get("visibility", 0) / 1000,  # Convert to km
                 "uv_index": self._get_uv_index(city["lat"], city["lon"]),
-                "coordinates": {"lat": city["lat"], "lon": city["lon"]}
+                "coordinates": {"lat": city["lat"], "lon": city["lon"]},
+                "disease_analysis": disease_analysis,
+                "alert_level": self._calculate_overall_alert_level(disease_analysis)
             }
             
         except Exception as e:
@@ -148,6 +179,171 @@ class WeatherService:
         except Exception as e:
             logger.error(f"Error getting dominant condition: {e}")
             return "Unknown"
+    
+    def _analyze_disease_risks(self, city: str, temperature: float, humidity: float) -> Dict[str, Any]:
+        """Analyze disease risks based on weather conditions"""
+        try:
+            risks = {}
+            
+            # Dengue risk analysis
+            dengue_risk = self._calculate_dengue_risk(temperature, humidity)
+            risks['dengue'] = {
+                'risk_level': dengue_risk,
+                'factors': self._get_dengue_factors(temperature, humidity)
+            }
+            
+            # Malaria risk analysis
+            malaria_risk = self._calculate_malaria_risk(temperature, humidity)
+            risks['malaria'] = {
+                'risk_level': malaria_risk,
+                'factors': self._get_malaria_factors(temperature, humidity)
+            }
+            
+            # Respiratory disease risk
+            respiratory_risk = self._calculate_respiratory_risk(temperature, humidity)
+            risks['respiratory'] = {
+                'risk_level': respiratory_risk,
+                'factors': self._get_respiratory_factors(temperature, humidity)
+            }
+            
+            # Heat stroke risk
+            heat_risk = self._calculate_heat_stroke_risk(temperature, humidity)
+            risks['heat_stroke'] = {
+                'risk_level': heat_risk,
+                'factors': self._get_heat_stroke_factors(temperature, humidity)
+            }
+            
+            return risks
+            
+        except Exception as e:
+            logger.error(f"Error analyzing disease risks: {e}")
+            return {}
+    
+    def _calculate_dengue_risk(self, temperature: float, humidity: float) -> str:
+        """Calculate dengue transmission risk"""
+        thresholds = self.disease_thresholds['dengue']
+        
+        if (temperature >= thresholds['temperature']['min'] and 
+            temperature <= thresholds['temperature']['max'] and
+            humidity >= thresholds['humidity']['min']):
+            
+            if (temperature >= thresholds['temperature']['critical'] or 
+                humidity >= thresholds['humidity']['critical']):
+                return 'critical'
+            elif humidity >= thresholds['humidity']['max']:
+                return 'high'
+            else:
+                return 'medium'
+        else:
+            return 'low'
+    
+    def _calculate_malaria_risk(self, temperature: float, humidity: float) -> str:
+        """Calculate malaria transmission risk"""
+        thresholds = self.disease_thresholds['malaria']
+        
+        if (temperature >= thresholds['temperature']['min'] and 
+            temperature <= thresholds['temperature']['max'] and
+            humidity >= thresholds['humidity']['min']):
+            
+            if (temperature >= thresholds['temperature']['critical'] or 
+                humidity >= thresholds['humidity']['critical']):
+                return 'critical'
+            elif humidity >= thresholds['humidity']['max']:
+                return 'high'
+            else:
+                return 'medium'
+        else:
+            return 'low'
+    
+    def _calculate_respiratory_risk(self, temperature: float, humidity: float) -> str:
+        """Calculate respiratory disease risk"""
+        thresholds = self.disease_thresholds['respiratory']
+        
+        if (temperature >= thresholds['temperature']['critical_high'] or 
+            temperature <= thresholds['temperature']['critical_low'] or
+            humidity <= thresholds['humidity']['critical_low']):
+            return 'high'
+        elif temperature >= 35 or temperature <= 15:
+            return 'medium'
+        else:
+            return 'low'
+    
+    def _calculate_heat_stroke_risk(self, temperature: float, humidity: float) -> str:
+        """Calculate heat stroke risk"""
+        thresholds = self.disease_thresholds['heat_stroke']
+        heat_index = temperature + (0.5 * (humidity / 100) * (temperature - 14))
+        
+        if heat_index >= thresholds['temperature']['extreme']:
+            return 'extreme'
+        elif heat_index >= thresholds['temperature']['critical']:
+            return 'critical'
+        elif heat_index >= thresholds['temperature']['high']:
+            return 'high'
+        else:
+            return 'low'
+    
+    def _get_dengue_factors(self, temperature: float, humidity: float) -> List[str]:
+        """Get factors contributing to dengue risk"""
+        factors = []
+        if temperature >= 25:
+            factors.append(f"Optimal temperature for mosquito breeding ({temperature}°C)")
+        if humidity >= 60:
+            factors.append(f"High humidity supports vector survival ({humidity}%)")
+        if temperature >= 30 and humidity >= 70:
+            factors.append("Combined high temperature and humidity accelerate virus replication")
+        return factors
+    
+    def _get_malaria_factors(self, temperature: float, humidity: float) -> List[str]:
+        """Get factors contributing to malaria risk"""
+        factors = []
+        if 20 <= temperature <= 30:
+            factors.append(f"Temperature range supports parasite development ({temperature}°C)")
+        if humidity >= 60:
+            factors.append(f"High humidity extends mosquito lifespan ({humidity}%)")
+        if humidity >= 80:
+            factors.append("Very high humidity creates ideal breeding conditions")
+        return factors
+    
+    def _get_respiratory_factors(self, temperature: float, humidity: float) -> List[str]:
+        """Get factors contributing to respiratory disease risk"""
+        factors = []
+        if temperature >= 40:
+            factors.append(f"Extreme heat stress on respiratory system ({temperature}°C)")
+        if temperature <= 10:
+            factors.append(f"Cold weather increases respiratory infection risk ({temperature}°C)")
+        if humidity <= 30:
+            factors.append(f"Low humidity dries respiratory passages ({humidity}%)")
+        return factors
+    
+    def _get_heat_stroke_factors(self, temperature: float, humidity: float) -> List[str]:
+        """Get factors contributing to heat stroke risk"""
+        factors = []
+        heat_index = temperature + (0.5 * (humidity / 100) * (temperature - 14))
+        if temperature >= 38:
+            factors.append(f"High ambient temperature ({temperature}°C)")
+        if heat_index >= 40:
+            factors.append(f"Dangerous heat index ({heat_index:.1f}°C)")
+        if humidity >= 70:
+            factors.append(f"High humidity impairs cooling ({humidity}%)")
+        return factors
+    
+    def _calculate_overall_alert_level(self, disease_analysis: Dict[str, Any]) -> str:
+        """Calculate overall alert level based on all disease risks"""
+        try:
+            risk_levels = []
+            for disease, data in disease_analysis.items():
+                risk_levels.append(data.get('risk_level', 'low'))
+            
+            if 'extreme' in risk_levels or 'critical' in risk_levels:
+                return 'critical'
+            elif 'high' in risk_levels:
+                return 'high'
+            elif 'medium' in risk_levels:
+                return 'medium'
+            else:
+                return 'low'
+        except:
+            return 'low'
     def get_historical_weather(self, lat: float, lon: float, start: int, end: int) -> Optional[Dict[str, Any]]:
         """Get historical weather data for specific coordinates (mocked)."""
         logger.info(f"Fetching historical weather for lat={lat}, lon={lon} (mocked)")
@@ -640,4 +836,207 @@ class WeatherService:
             "cities": [],
             "last_updated": datetime.now().isoformat(),
             "error": "Weather API not available"
+        }
+    
+    def get_disease_risk_forecast(self, days: int = 7) -> Dict[str, Any]:
+        """Get disease risk forecast for the next few days"""
+        try:
+            current_weather = self.get_current_weather()
+            forecast_data = {
+                "forecast_period": days,
+                "city_forecasts": [],
+                "national_trends": {},
+                "recommendations": [],
+                "last_updated": datetime.now().isoformat()
+            }
+            
+            # Generate forecast for each city
+            for city_data in current_weather.get("cities", []):
+                city_forecast = self._generate_city_disease_forecast(city_data, days)
+                forecast_data["city_forecasts"].append(city_forecast)
+            
+            # Calculate national trends
+            forecast_data["national_trends"] = self._calculate_national_disease_trends(forecast_data["city_forecasts"])
+            
+            # Generate recommendations
+            forecast_data["recommendations"] = self._generate_health_recommendations(forecast_data["national_trends"])
+            
+            return forecast_data
+            
+        except Exception as e:
+            logger.error(f"Error generating disease risk forecast: {e}")
+            return self._get_fallback_disease_forecast()
+    
+    def _generate_city_disease_forecast(self, city_data: Dict[str, Any], days: int) -> Dict[str, Any]:
+        """Generate disease risk forecast for a specific city"""
+        city_name = city_data.get("city", "Unknown")
+        current_temp = city_data.get("temperature", 25)
+        current_humidity = city_data.get("humidity", 50)
+        
+        daily_forecasts = []
+        
+        for day in range(days):
+            # Simulate weather variations
+            temp_variation = random.uniform(-3, 3)
+            humidity_variation = random.uniform(-10, 10)
+            
+            forecast_temp = current_temp + temp_variation
+            forecast_humidity = max(20, min(95, current_humidity + humidity_variation))
+            
+            # Calculate disease risks for forecasted conditions
+            disease_analysis = self._analyze_disease_risks(city_name, forecast_temp, forecast_humidity)
+            
+            daily_forecasts.append({
+                "date": (datetime.now() + timedelta(days=day)).strftime("%Y-%m-%d"),
+                "temperature": round(forecast_temp, 1),
+                "humidity": round(forecast_humidity, 1),
+                "disease_risks": disease_analysis,
+                "alert_level": self._calculate_overall_alert_level(disease_analysis)
+            })
+        
+        return {
+            "city": city_name,
+            "daily_forecasts": daily_forecasts,
+            "trend_analysis": self._analyze_city_trends(daily_forecasts)
+        }
+    
+    def _analyze_city_trends(self, daily_forecasts: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Analyze trends in disease risks over the forecast period"""
+        try:
+            alert_levels = [day["alert_level"] for day in daily_forecasts]
+            
+            # Count risk levels
+            risk_counts = {}
+            for level in alert_levels:
+                risk_counts[level] = risk_counts.get(level, 0) + 1
+            
+            # Determine trend
+            if alert_levels[0] < alert_levels[-1]:
+                trend = "increasing"
+            elif alert_levels[0] > alert_levels[-1]:
+                trend = "decreasing"
+            else:
+                trend = "stable"
+            
+            return {
+                "overall_trend": trend,
+                "risk_distribution": risk_counts,
+                "peak_risk_day": max(range(len(alert_levels)), key=lambda i: self._risk_level_to_score(alert_levels[i])),
+                "average_risk": self._calculate_average_risk(alert_levels)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing city trends: {e}")
+            return {}
+    
+    def _risk_level_to_score(self, risk_level: str) -> int:
+        """Convert risk level to numerical score"""
+        scores = {"low": 1, "medium": 2, "high": 3, "critical": 4, "extreme": 5}
+        return scores.get(risk_level, 1)
+    
+    def _calculate_average_risk(self, alert_levels: List[str]) -> str:
+        """Calculate average risk level"""
+        scores = [self._risk_level_to_score(level) for level in alert_levels]
+        avg_score = sum(scores) / len(scores)
+        
+        if avg_score >= 4:
+            return "critical"
+        elif avg_score >= 3:
+            return "high"
+        elif avg_score >= 2:
+            return "medium"
+        else:
+            return "low"
+    
+    def _calculate_national_disease_trends(self, city_forecasts: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Calculate national disease trends from city forecasts"""
+        try:
+            all_diseases = ["dengue", "malaria", "respiratory", "heat_stroke"]
+            national_trends = {}
+            
+            for disease in all_diseases:
+                disease_risks = []
+                for city_forecast in city_forecasts:
+                    for day in city_forecast.get("daily_forecasts", []):
+                        disease_data = day.get("disease_risks", {}).get(disease, {})
+                        risk_level = disease_data.get("risk_level", "low")
+                        disease_risks.append(self._risk_level_to_score(risk_level))
+                
+                if disease_risks:
+                    avg_risk = sum(disease_risks) / len(disease_risks)
+                    national_trends[disease] = {
+                        "average_risk_score": round(avg_risk, 2),
+                        "risk_level": self._score_to_risk_level(avg_risk),
+                        "trend": "increasing" if avg_risk > 2.5 else "stable"
+                    }
+            
+            return national_trends
+            
+        except Exception as e:
+            logger.error(f"Error calculating national trends: {e}")
+            return {}
+    
+    def _score_to_risk_level(self, score: float) -> str:
+        """Convert numerical score back to risk level"""
+        if score >= 4:
+            return "critical"
+        elif score >= 3:
+            return "high"
+        elif score >= 2:
+            return "medium"
+        else:
+            return "low"
+    
+    def _generate_health_recommendations(self, national_trends: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Generate health recommendations based on disease trends"""
+        recommendations = []
+        
+        for disease, trend_data in national_trends.items():
+            risk_level = trend_data.get("risk_level", "low")
+            
+            if disease == "dengue" and risk_level in ["high", "critical"]:
+                recommendations.append({
+                    "disease": "dengue",
+                    "priority": "high",
+                    "action": "Intensify vector control operations",
+                    "details": "Eliminate standing water, increase surveillance, public awareness campaigns"
+                })
+            
+            if disease == "malaria" and risk_level in ["high", "critical"]:
+                recommendations.append({
+                    "disease": "malaria",
+                    "priority": "high", 
+                    "action": "Distribute bed nets and antimalarial drugs",
+                    "details": "Focus on high-risk areas, strengthen case management"
+                })
+            
+            if disease == "heat_stroke" and risk_level in ["high", "critical"]:
+                recommendations.append({
+                    "disease": "heat_stroke",
+                    "priority": "medium",
+                    "action": "Issue heat wave warnings",
+                    "details": "Establish cooling centers, public health advisories"
+                })
+        
+        return recommendations
+    
+    def _get_fallback_disease_forecast(self) -> Dict[str, Any]:
+        """Fallback disease forecast when API is unavailable"""
+        return {
+            "forecast_period": 7,
+            "city_forecasts": [],
+            "national_trends": {
+                "dengue": {"risk_level": "medium", "trend": "stable"},
+                "malaria": {"risk_level": "medium", "trend": "stable"}
+            },
+            "recommendations": [
+                {
+                    "disease": "general",
+                    "priority": "medium",
+                    "action": "Continue routine surveillance",
+                    "details": "Maintain standard prevention measures"
+                }
+            ],
+            "last_updated": datetime.now().isoformat(),
+            "note": "Fallback data - API unavailable"
         }

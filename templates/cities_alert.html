@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cities on Alert - Pakistan Disease Outbreak Monitoring</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-exclamation-triangle"></i> Cities on Alert</h1>
+            <p>Real-time disease outbreak risk monitoring for Pakistani cities</p>
+            <div class="last-updated" id="lastUpdated">Loading...</div>
+        </header>
+
+        <!-- National Overview -->
+        <div class="overview-section">
+            <h2><i class="fas fa-chart-bar"></i> National Overview</h2>
+            <div class="overview-grid">
+                <div class="overview-card">
+                    <div class="card-icon"><i class="fas fa-city"></i></div>
+                    <div class="card-content">
+                        <h3 id="totalCitiesMonitored">-</h3>
+                        <p>Cities Monitored</p>
+                    </div>
+                </div>
+                <div class="overview-card alert">
+                    <div class="card-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="card-content">
+                        <h3 id="citiesOnAlert">-</h3>
+                        <p>Cities on Alert</p>
+                    </div>
+                </div>
+                <div class="overview-card critical">
+                    <div class="card-icon"><i class="fas fa-users"></i></div>
+                    <div class="card-content">
+                        <h3 id="populationAffected">-</h3>
+                        <p>Population Affected</p>
+                    </div>
+                </div>
+                <div class="overview-card danger">
+                    <div class="card-icon"><i class="fas fa-virus"></i></div>
+                    <div class="card-content">
+                        <h3 id="estimatedCases">-</h3>
+                        <p>Estimated Cases (30 days)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Summary -->
+        <div class="alert-summary-section">
+            <h2><i class="fas fa-info-circle"></i> Alert Summary</h2>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h3>Most Affected City</h3>
+                    <p id="mostAffectedCity">-</p>
+                </div>
+                <div class="summary-card">
+                    <h3>Alert Percentage</h3>
+                    <p id="alertPercentage">-</p>
+                </div>
+                <div class="summary-card">
+                    <h3>Dominant Diseases</h3>
+                    <div id="dominantDiseases">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cities on Alert -->
+        <div class="cities-section">
+            <h2><i class="fas fa-map-marker-alt"></i> Cities Currently on Alert</h2>
+            <div id="citiesContainer" class="cities-container">
+                <div class="loading">Loading cities data...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let alertData = null;
+        
+        async function fetchAlertData() {
+            try {
+                const response = await fetch('/api/cities-on-alert');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    alertData = data.data;
+                    updateOverview();
+                    updateAlertSummary();
+                    updateCitiesDisplay();
+                    document.getElementById('lastUpdated').textContent = 
+                        `Last updated: ${new Date(alertData.last_updated).toLocaleString()}`;
+                } else {
+                    throw new Error(data.message || 'Failed to fetch data');
+                }
+            } catch (error) {
+                console.error('Error fetching alert data:', error);
+                document.getElementById('citiesContainer').innerHTML = 
+                    `<div class="error">Error loading data: ${error.message}</div>`;
+            }
+        }
+        
+        function updateOverview() {
+            const overview = alertData.national_overview;
+            const summary = alertData.alert_summary;
+            
+            document.getElementById('totalCitiesMonitored').textContent = overview.total_cities_monitored;
+            document.getElementById('citiesOnAlert').textContent = overview.cities_on_alert;
+            document.getElementById('populationAffected').textContent = formatNumber(summary.total_population_affected);
+            document.getElementById('estimatedCases').textContent = formatNumber(summary.total_estimated_cases);
+        }
+        
+        function updateAlertSummary() {
+            const overview = alertData.national_overview;
+            
+            document.getElementById('mostAffectedCity').textContent = overview.most_affected_city || 'None';
+            document.getElementById('alertPercentage').textContent = `${overview.alert_percentage}%`;
+            
+            const dominantDiseasesEl = document.getElementById('dominantDiseases');
+            if (overview.dominant_diseases && overview.dominant_diseases.length > 0) {
+                dominantDiseasesEl.innerHTML = overview.dominant_diseases
+                    .map(([disease, count]) => `<span class="disease-tag">${disease} (${count})</span>`)
+                    .join('');
+            } else {
+                dominantDiseasesEl.textContent = 'No dominant diseases';
+            }
+        }
+        
+        function updateCitiesDisplay() {
+            const container = document.getElementById('citiesContainer');
+            const cities = alertData.cities_on_alert;
+            
+            if (cities.length === 0) {
+                container.innerHTML = '<div class="no-alerts">No cities currently on alert</div>';
+                return;
+            }
+            
+            container.innerHTML = cities.map(city => createCityCard(city)).join('');
+        }
+        
+        function createCityCard(city) {
+            const riskClass = city.alert_details.overall_risk_level.toLowerCase();
+            const diseases = city.diseases_on_alert;
+            
+            return `
+                <div class="city-card ${riskClass}">
+                    <div class="city-header">
+                        <h3><i class="fas fa-map-marker-alt"></i> ${city.city}, ${city.province}</h3>
+                        <div class="risk-badge ${riskClass}">${city.alert_details.overall_risk_level}</div>
+                    </div>
+                    
+                    <div class="city-content">
+                        <div class="weather-info">
+                            <h4><i class="fas fa-thermometer-half"></i> Current Conditions</h4>
+                            <div class="weather-grid">
+                                <div class="weather-item">
+                                    <span class="label">Temperature:</span>
+                                    <span class="value">${city.current_conditions.temperature}°C</span>
+                                </div>
+                                <div class="weather-item">
+                                    <span class="label">Humidity:</span>
+                                    <span class="value">${city.current_conditions.humidity}%</span>
+                                </div>
+                                <div class="weather-item">
+                                    <span class="label">UV Index:</span>
+                                    <span class="value">${city.current_conditions.uv_index}</span>
+                                </div>
+                                <div class="weather-item">
+                                    <span class="label">Conditions:</span>
+                                    <span class="value">${city.current_conditions.weather_description}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="population-info">
+                            <h4><i class="fas fa-users"></i> Population Impact</h4>
+                            <div class="population-grid">
+                                <div class="pop-item">
+                                    <span class="label">Total Population:</span>
+                                    <span class="value">${formatNumber(city.population_data.total_population)}</span>
+                                </div>
+                                <div class="pop-item">
+                                    <span class="label">Population at Risk:</span>
+                                    <span class="value">${formatNumber(city.alert_details.total_population_at_risk)}</span>
+                                </div>
+                                <div class="pop-item">
+                                    <span class="label">Risk Percentage:</span>
+                                    <span class="value">${city.alert_details.risk_percentage}%</span>
+                                </div>
+                                <div class="pop-item">
+                                    <span class="label">Estimated Cases (30 days):</span>
+                                    <span class="value">${formatNumber(city.alert_details.total_estimated_cases_30_days)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="diseases-info">
+                            <h4><i class="fas fa-virus"></i> Diseases on Alert</h4>
+                            <div class="diseases-grid">
+                                ${diseases.map(disease => `
+                                    <div class="disease-card ${disease.risk_level.toLowerCase()}">
+                                        <div class="disease-header">
+                                            <h5>${disease.disease}</h5>
+                                            <span class="risk-level">${disease.risk_level}</span>
+                                        </div>
+                                        <div class="disease-details">
+                                            <p><strong>Population at Risk:</strong> ${formatNumber(disease.population_at_risk)}</p>
+                                            <p><strong>Estimated Cases (30 days):</strong> ${formatNumber(disease.estimated_cases_30_days)}</p>
+                                            <p><strong>Transmission Rate:</strong> ${disease.transmission_rate}%</p>
+                                            <p><strong>Confidence:</strong> ${disease.confidence_level}</p>
+                                            <div class="factors">
+                                                <strong>Contributing Factors:</strong>
+                                                <ul>
+                                                    ${disease.contributing_factors.map(factor => `<li>${factor}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="recommendations-info">
+                            <h4><i class="fas fa-lightbulb"></i> Recommendations</h4>
+                            <div class="recommendations-list">
+                                ${city.recommendations.map(rec => `
+                                    <div class="recommendation ${rec.priority.toLowerCase()}">
+                                        <div class="rec-header">
+                                            <span class="category">${rec.category}</span>
+                                            <span class="priority">${rec.priority}</span>
+                                        </div>
+                                        <div class="rec-content">
+                                            <h6>${rec.action}</h6>
+                                            <p>${rec.details}</p>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function formatNumber(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toLocaleString();
+        }
+        
+        // Auto-refresh every 5 minutes
+        setInterval(fetchAlertData, 300000);
+        
+        // Initial load
+        fetchAlertData();
+    </script>
+</body>
+</html>

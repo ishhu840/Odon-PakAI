@@ -1,7 +1,11 @@
 // Global variables
 let diseaseChart;
 let diseaseMap;
+let heatwaveMap;
 let updateInterval;
+let heatwaveLayer;
+let heatwaveMarkers = [];
+let heatwaveData = [];
 
 // Initialize dashboard when page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -18,6 +22,7 @@ function initializeDashboard() {
     loadDashboardData();
     loadWeatherData();
     initializeMap();
+    initializeHeatwaveMap();
     initializeChart();
     
     // Load other components with delays to prevent overwhelming the server
@@ -536,7 +541,7 @@ function updateCriticalOutbreakAlerts(data) {
                 <h6 class="mb-2">Alert Summary</h6>
                 <p class="mb-1"><strong>Highest Priority City:</strong> ${data.alert_summary.highest_priority}</p>
                 <p class="mb-1"><strong>Total Critical Alerts:</strong> ${data.alert_summary.total_critical_alerts}</p>
-                <p class="mb-0"><strong>Last Updated:</strong> ${new Date(data.last_updated).toLocaleString()}</p>
+                <p class="mb-0"><strong>Last Updated:</strong> ${data.last_updated ? new Date(data.last_updated).toLocaleString() : 'N/A'}</p>
             </div>
         `;
     }
@@ -3039,6 +3044,475 @@ function updatePredictionCharts(data) {
             </div>
         </div>
     `;
+}
+
+// Heatwave Map Initialization and Functions
+function initializeHeatwaveMap() {
+    try {
+        if (typeof L === 'undefined') {
+            console.error('Leaflet library not loaded');
+            return;
+        }
+
+        const mapContainer = document.getElementById('heatwaveMap');
+        if (!mapContainer) {
+            console.error('Heatwave map container not found');
+            return;
+        }
+
+        // Initialize the heatwave map
+        heatwaveMap = L.map('heatwaveMap', {
+            center: [30.3753, 69.3451], // Pakistan center
+            zoom: 6,
+            zoomControl: true,
+            scrollWheelZoom: true
+        });
+
+        // Add tile layers with fallback
+        const tileProviders = [
+            {
+                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                attribution: '© OpenStreetMap contributors'
+            },
+            {
+                url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
+                attribution: '© CartoDB'
+            }
+        ];
+
+        let tileLayerAdded = false;
+        for (const provider of tileProviders) {
+            try {
+                L.tileLayer(provider.url, {
+                    attribution: provider.attribution,
+                    maxZoom: 18
+                }).addTo(heatwaveMap);
+                tileLayerAdded = true;
+                break;
+            } catch (error) {
+                console.warn('Failed to load tile provider:', provider.url);
+            }
+        }
+
+        if (!tileLayerAdded) {
+            console.error('Failed to load any tile provider');
+        }
+
+        // Set map bounds to Pakistan
+        const pakistanBounds = [
+            [23.5, 60.5], // Southwest
+            [37.5, 77.5]  // Northeast
+        ];
+        heatwaveMap.fitBounds(pakistanBounds);
+
+        // Initialize heatwave layer
+        heatwaveLayer = L.layerGroup().addTo(heatwaveMap);
+
+        // Load initial heatwave data
+        loadHeatwaveData();
+
+        // Set up event listeners for controls
+        setupHeatwaveControls();
+
+        console.log('Heatwave map initialized successfully');
+    } catch (error) {
+        console.error('Error initializing heatwave map:', error);
+    }
+}
+
+function setupHeatwaveControls() {
+    // Toggle heatwave layer
+    const toggleBtn = document.getElementById('toggleHeatwave');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            if (heatwaveMap.hasLayer(heatwaveLayer)) {
+                heatwaveMap.removeLayer(heatwaveLayer);
+                this.textContent = 'Show Heatwave';
+                this.classList.remove('btn-danger');
+                this.classList.add('btn-outline-danger');
+            } else {
+                heatwaveMap.addLayer(heatwaveLayer);
+                this.textContent = 'Hide Heatwave';
+                this.classList.remove('btn-outline-danger');
+                this.classList.add('btn-danger');
+            }
+        });
+    }
+
+    // Refresh heatmap
+    const refreshBtn = document.getElementById('refreshHeatmap');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            loadHeatwaveData();
+        });
+    }
+
+    // Disease type filter
+    const diseaseFilter = document.getElementById('diseaseFilter');
+    if (diseaseFilter) {
+        diseaseFilter.addEventListener('change', function() {
+            updateHeatwaveMarkers();
+        });
+    }
+
+    // Heatwave intensity filter
+    const intensityFilter = document.getElementById('heatwaveIntensity');
+    if (intensityFilter) {
+        intensityFilter.addEventListener('change', function() {
+            updateHeatwaveDisplay();
+        });
+    }
+}
+
+async function loadHeatwaveData() {
+    try {
+        // Generate synthetic heatwave data for major Pakistani cities
+        heatwaveData = [
+            { city: 'Karachi', lat: 24.8607, lng: 67.0011, temp: 42, humidity: 78, risk: 'high', diseases: ['dengue', 'malaria'], population: 14910352, affected_estimate: 8946 },
+            { city: 'Lahore', lat: 31.5204, lng: 74.3587, temp: 45, humidity: 65, risk: 'critical', diseases: ['dengue', 'respiratory'], population: 11126285, affected_estimate: 11126 },
+            { city: 'Islamabad', lat: 33.6844, lng: 73.0479, temp: 38, humidity: 55, risk: 'medium', diseases: ['respiratory'], population: 1014825, affected_estimate: 507 },
+            { city: 'Rawalpindi', lat: 33.5651, lng: 73.0169, temp: 39, humidity: 58, risk: 'medium', diseases: ['dengue'], population: 2098231, affected_estimate: 1049 },
+            { city: 'Faisalabad', lat: 31.4504, lng: 73.1350, temp: 44, humidity: 62, risk: 'high', diseases: ['dengue', 'malaria'], population: 3204726, affected_estimate: 3205 },
+            { city: 'Multan', lat: 30.1575, lng: 71.5249, temp: 46, humidity: 45, risk: 'critical', diseases: ['dengue', 'respiratory'], population: 1871843, affected_estimate: 1872 },
+            { city: 'Peshawar', lat: 34.0151, lng: 71.5249, temp: 41, humidity: 52, risk: 'high', diseases: ['respiratory'], population: 1970042, affected_estimate: 1970 },
+            { city: 'Quetta', lat: 30.1798, lng: 66.9750, temp: 35, humidity: 35, risk: 'low', diseases: [], population: 1001205, affected_estimate: 100 },
+            { city: 'Hyderabad', lat: 25.3960, lng: 68.3578, temp: 43, humidity: 72, risk: 'high', diseases: ['dengue', 'malaria'], population: 1734309, affected_estimate: 1734 },
+            { city: 'Gujranwala', lat: 32.1877, lng: 74.1945, temp: 43, humidity: 60, risk: 'high', diseases: ['dengue'], population: 2027001, affected_estimate: 2027 },
+            { city: 'Sialkot', lat: 32.4945, lng: 74.5229, temp: 42, humidity: 63, risk: 'high', diseases: ['dengue'], population: 655852, affected_estimate: 656 },
+            { city: 'Bahawalpur', lat: 29.4000, lng: 71.6833, temp: 47, humidity: 40, risk: 'critical', diseases: ['respiratory'], population: 762111, affected_estimate: 762 },
+            { city: 'Sargodha', lat: 32.0836, lng: 72.6711, temp: 44, humidity: 58, risk: 'high', diseases: ['dengue'], population: 659862, affected_estimate: 660 },
+            { city: 'Sukkur', lat: 27.7058, lng: 68.8574, temp: 45, humidity: 50, risk: 'critical', diseases: ['dengue', 'malaria'], population: 499900, affected_estimate: 500 },
+            { city: 'Larkana', lat: 27.5590, lng: 68.2123, temp: 44, humidity: 48, risk: 'high', diseases: ['malaria'], population: 364033, affected_estimate: 364 }
+        ];
+
+        // Try to fetch real data from API
+        try {
+            const response = await fetchWithRetry('/api/heatwave-data');
+            if (response && response.ok) {
+                const apiData = await response.json();
+                if (apiData && apiData.cities) {
+                    heatwaveData = apiData.cities;
+                }
+            }
+        } catch (error) {
+            console.warn('Using synthetic heatwave data:', error.message);
+        }
+
+        updateHeatwaveDisplay();
+        updateHeatwaveMarkers();
+    } catch (error) {
+        console.error('Error loading heatwave data:', error);
+    }
+}
+
+function updateHeatwaveDisplay() {
+    if (!heatwaveLayer || !heatwaveData) return;
+
+    // Clear existing heatwave visualization
+    heatwaveLayer.clearLayers();
+
+    const intensityFilter = document.getElementById('heatwaveIntensity')?.value || 'all';
+
+    // Create heat gradient zones for better visualization
+    const heatZones = createHeatGradientZones(heatwaveData, intensityFilter);
+    
+    // Add heat gradient zones first (background layer)
+    heatZones.forEach(zone => {
+        heatwaveLayer.addLayer(zone);
+    });
+
+    // Then add individual city circles on top
+    heatwaveData.forEach(city => {
+        // Filter by intensity if specified
+        if (intensityFilter !== 'all' && city.risk !== intensityFilter) {
+            return;
+        }
+
+        // Create temperature-based circle with enhanced styling
+        const tempColor = getTemperatureColor(city.temp);
+        const radius = getTemperatureRadius(city.temp);
+
+        const circle = L.circle([city.lat, city.lng], {
+            color: tempColor,
+            fillColor: tempColor,
+            fillOpacity: 0.4,
+            radius: radius,
+            weight: 2,
+            opacity: 0.8
+        });
+
+        // Calculate disease risk indicators
+        const diseaseRiskScore = calculateDiseaseRiskScore(city.diseases, city.temp, city.humidity);
+        const populationAtRisk = Math.round(city.population * (diseaseRiskScore / 100));
+        
+        circle.bindPopup(`
+            <div class="heatwave-popup">
+                <h6><strong>${city.city}</strong></h6>
+                <p><strong>Temperature:</strong> ${city.temp}°C</p>
+                <p><strong>Humidity:</strong> ${city.humidity}%</p>
+                <p><strong>Risk Level:</strong> <span class="badge badge-${getRiskBadgeClass(city.risk)}">${city.risk.toUpperCase()}</span></p>
+                <p><strong>Population:</strong> ${formatNumber(city.population)}</p>
+                <p><strong>Disease Risk Score:</strong> ${diseaseRiskScore}%</p>
+                <p><strong>Population at Risk:</strong> ${formatNumber(populationAtRisk)}</p>
+                <p><strong>Estimated Affected (30 days):</strong> ${formatNumber(city.affected_estimate)}</p>
+                <p><strong>Predicted Diseases:</strong> ${city.diseases.length > 0 ? city.diseases.join(', ') : 'None'}</p>
+            </div>
+        `);
+
+        heatwaveLayer.addLayer(circle);
+    });
+}
+
+function updateHeatwaveMarkers() {
+    if (!heatwaveMap || !heatwaveData) return;
+
+    // Clear existing markers
+    heatwaveMarkers.forEach(marker => heatwaveMap.removeLayer(marker));
+    heatwaveMarkers = [];
+
+    const diseaseFilter = document.getElementById('diseaseFilter')?.value || 'all';
+
+    heatwaveData.forEach(city => {
+        // Filter by disease type if specified
+        if (diseaseFilter !== 'all' && !city.diseases.includes(diseaseFilter)) {
+            return;
+        }
+
+        // Only show markers for cities with disease risks
+        if (city.diseases.length === 0) return;
+
+        const markerColor = getDiseaseMarkerColor(city.diseases, city.risk);
+        const markerIcon = L.divIcon({
+            className: 'disease-outbreak-marker',
+            html: `<div style="background-color: ${markerColor}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+
+        const marker = L.marker([city.lat, city.lng], { icon: markerIcon });
+        
+        // Calculate disease impact estimates
+        const diseaseRiskScore = calculateDiseaseRiskScore(city.diseases, city.temp, city.humidity);
+        const populationAtRisk = Math.round(city.population * (diseaseRiskScore / 100));
+        const estimatedCases = calculateEstimatedCases(city.diseases, city.risk, city.population);
+        
+        marker.bindPopup(`
+            <div class="outbreak-popup">
+                <h6><strong>${city.city} - Disease Outbreak Risk</strong></h6>
+                <p><strong>Risk Level:</strong> <span class="badge badge-${getRiskBadgeClass(city.risk)}">${city.risk.toUpperCase()}</span></p>
+                <p><strong>Temperature:</strong> ${city.temp}°C</p>
+                <p><strong>Humidity:</strong> ${city.humidity}%</p>
+                <p><strong>Population:</strong> ${formatNumber(city.population)}</p>
+                <p><strong>Disease Risk Score:</strong> ${diseaseRiskScore}%</p>
+                <p><strong>Population at Risk:</strong> ${formatNumber(populationAtRisk)}</p>
+                <p><strong>Estimated Cases (30 days):</strong> ${formatNumber(estimatedCases)}</p>
+                <p><strong>Predicted Diseases:</strong></p>
+                <ul>
+                    ${city.diseases.map(disease => `<li><strong>${disease.charAt(0).toUpperCase() + disease.slice(1)}</strong></li>`).join('')}
+                </ul>
+                <p><small>Based on current weather conditions and AI predictions</small></p>
+            </div>
+        `);
+
+        heatwaveMap.addLayer(marker);
+        heatwaveMarkers.push(marker);
+    });
+}
+
+function createHeatGradientZones(heatwaveData, intensityFilter) {
+    const zones = [];
+    
+    // Create temperature-based zones with larger coverage areas
+    heatwaveData.forEach(city => {
+        if (intensityFilter !== 'all' && city.risk !== intensityFilter) {
+            return;
+        }
+        
+        // Create larger heat zones for gradient effect
+        const temp = city.temp;
+        const zoneColor = getHeatZoneColor(temp);
+        const zoneRadius = getHeatZoneRadius(temp);
+        
+        // Create multiple concentric circles for gradient effect
+        for (let i = 3; i >= 1; i--) {
+            const opacity = 0.1 + (i * 0.05); // Varying opacity for gradient
+            const radius = zoneRadius * (i * 0.7);
+            
+            const zone = L.circle([city.lat, city.lng], {
+                color: 'transparent',
+                fillColor: zoneColor,
+                fillOpacity: opacity,
+                radius: radius,
+                weight: 0,
+                interactive: false // Don't interfere with city markers
+            });
+            
+            zones.push(zone);
+        }
+    });
+    
+    return zones;
+}
+
+function getHeatZoneColor(temp) {
+    if (temp >= 45) return '#8B0000'; // Dark red for extreme heat
+    if (temp >= 42) return '#DC143C'; // Crimson
+    if (temp >= 40) return '#FF4500'; // Orange red
+    if (temp >= 38) return '#FF6347'; // Tomato
+    if (temp >= 35) return '#FFA500'; // Orange
+    if (temp >= 32) return '#FFD700'; // Gold
+    return '#FFFF99'; // Light yellow
+}
+
+function getHeatZoneRadius(temp) {
+    // Larger radius for heat zones to create coverage effect
+    const baseRadius = 40000; // 40km base radius
+    const tempFactor = Math.max(0.8, (temp - 25) / 25);
+    return baseRadius * tempFactor;
+}
+
+function getTemperatureColor(temp) {
+    if (temp >= 45) return '#8B0000'; // Dark red
+    if (temp >= 42) return '#DC143C'; // Crimson
+    if (temp >= 40) return '#FF4500'; // Orange red
+    if (temp >= 38) return '#FF8C00'; // Dark orange
+    if (temp >= 35) return '#FFA500'; // Orange
+    if (temp >= 32) return '#FFD700'; // Gold
+    return '#90EE90'; // Light green
+}
+
+function getTemperatureRadius(temp) {
+    // Radius in meters based on temperature
+    const baseRadius = 15000;
+    const tempFactor = Math.max(0.5, (temp - 30) / 20);
+    return baseRadius * tempFactor;
+}
+
+function getDiseaseMarkerColor(diseases, risk) {
+    if (risk === 'critical') return '#8B0000';
+    if (risk === 'high') return '#DC143C';
+    if (risk === 'medium') return '#FF8C00';
+    return '#FFA500';
+}
+
+function getRiskBadgeClass(risk) {
+    switch (risk) {
+        case 'critical': return 'danger';
+        case 'high': return 'warning';
+        case 'medium': return 'info';
+        case 'low': return 'success';
+        default: return 'secondary';
+    }
+}
+
+// Helper function to calculate disease risk score based on diseases, temperature, and humidity
+function calculateDiseaseRiskScore(diseases, temp, humidity) {
+    let baseScore = 0;
+    
+    // Base score from number of predicted diseases
+    baseScore = diseases.length * 15;
+    
+    // Temperature factor
+    if (temp >= 45) baseScore += 30;
+    else if (temp >= 42) baseScore += 25;
+    else if (temp >= 40) baseScore += 20;
+    else if (temp >= 35) baseScore += 15;
+    else if (temp >= 30) baseScore += 10;
+    
+    // Humidity factor
+    if (humidity >= 80) baseScore += 20;
+    else if (humidity >= 70) baseScore += 15;
+    else if (humidity >= 60) baseScore += 10;
+    else if (humidity >= 50) baseScore += 5;
+    
+    // Disease-specific risk multipliers
+    diseases.forEach(disease => {
+        switch(disease.toLowerCase()) {
+            case 'dengue':
+                if (temp >= 25 && temp <= 35 && humidity >= 60) baseScore += 15;
+                break;
+            case 'malaria':
+                if (temp >= 20 && temp <= 30 && humidity >= 70) baseScore += 12;
+                break;
+            case 'cholera':
+                if (temp >= 30 && humidity >= 75) baseScore += 18;
+                break;
+            case 'typhoid':
+                if (temp >= 25 && humidity >= 65) baseScore += 10;
+                break;
+            case 'respiratory':
+                if (temp >= 35 || humidity <= 40) baseScore += 8;
+                break;
+            case 'diarrheal':
+                if (temp >= 30 && humidity >= 70) baseScore += 12;
+                break;
+            case 'hepatitis':
+                if (temp >= 25 && humidity >= 60) baseScore += 10;
+                break;
+        }
+    });
+    
+    // Cap the score at 100%
+    return Math.min(baseScore, 100);
+}
+
+// Helper function to calculate estimated cases based on diseases, risk level, and population
+function calculateEstimatedCases(diseases, riskLevel, population) {
+    let baseRate = 0;
+    
+    // Base infection rate based on risk level
+    switch(riskLevel.toLowerCase()) {
+        case 'critical':
+            baseRate = 0.008; // 0.8%
+            break;
+        case 'high':
+            baseRate = 0.005; // 0.5%
+            break;
+        case 'medium':
+            baseRate = 0.003; // 0.3%
+            break;
+        case 'low':
+            baseRate = 0.001; // 0.1%
+            break;
+        default:
+            baseRate = 0.002; // 0.2%
+    }
+    
+    // Adjust rate based on number and type of diseases
+    let diseaseMultiplier = 1;
+    diseases.forEach(disease => {
+        switch(disease.toLowerCase()) {
+            case 'dengue':
+            case 'malaria':
+            case 'cholera':
+                diseaseMultiplier += 0.3;
+                break;
+            case 'respiratory':
+            case 'diarrheal':
+                diseaseMultiplier += 0.2;
+                break;
+            case 'typhoid':
+            case 'hepatitis':
+                diseaseMultiplier += 0.15;
+                break;
+        }
+    });
+    
+    return Math.round(population * baseRate * diseaseMultiplier);
+}
+
+// Helper function to format numbers with commas
+function formatNumber(num) {
+    if (num === null || num === undefined || isNaN(num)) {
+        return '0';
+    }
+    const numValue = Number(num);
+    if (numValue >= 1000000) {
+        return (numValue / 1000000).toFixed(1) + 'M';
+    } else if (numValue >= 1000) {
+        return (numValue / 1000).toFixed(1) + 'K';
+    }
+    return numValue.toLocaleString();
 }
 
 // Clean up intervals when page unloads

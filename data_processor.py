@@ -24,7 +24,7 @@ class HealthDataProcessor:
         """Load data from all available sources"""
         try:
             self.load_nih_data()
-            self.load_dengue_data()
+            self.load_dengue_cache()  # Load cached dengue summary for fast startup
             
             # If no data is loaded from NIH or Dengue sources, fallback to the old method
             if not self.current_data:
@@ -119,13 +119,22 @@ class HealthDataProcessor:
     def process_dengue_data_for_dashboard(self):
         """Process Dengue data to extract case statistics"""
         try:
-            dengue_df = self.current_data['dengue_data']
-            logger.info(f"Processing Dengue data with {len(dengue_df)} historical records")
+            # Check if we have cached dengue data or full dengue data
+            if 'dengue_cache' in self.current_data:
+                dengue_cache = self.current_data['dengue_cache']
+                total_historical_records = dengue_cache['total_records']
+                logger.info(f"Processing cached Dengue data with {total_historical_records} historical records")
+            elif 'dengue_data' in self.current_data and isinstance(self.current_data['dengue_data'], pd.DataFrame):
+                dengue_df = self.current_data['dengue_data']
+                total_historical_records = len(dengue_df)
+                logger.info(f"Processing full Dengue data with {total_historical_records} historical records")
+            else:
+                logger.warning("No dengue data available for processing")
+                return
             
             # Scale down historical data to realistic current case numbers
             # The dataset contains 80,686 records from 2011-2023 (12+ years)
             # For current dashboard, we want realistic weekly/monthly case numbers
-            total_historical_records = len(dengue_df)
             
             # Calculate realistic current dengue cases based on seasonal patterns
             # Peak dengue season is September-November in Pakistan
@@ -632,8 +641,39 @@ class HealthDataProcessor:
         else:
             logger.warning("No NIH data found or loaded.")
 
+    def load_dengue_cache(self):
+        """Load cached dengue summary data for fast startup"""
+        import json
+        
+        cache_file_path = os.path.join(self.dengue_data_dir, 'dengue_cache.json')
+        logger.info(f"Loading dengue cache from {cache_file_path}")
+        
+        if os.path.exists(cache_file_path):
+            try:
+                with open(cache_file_path, 'r') as f:
+                    dengue_cache = json.load(f)
+                
+                self.current_data['dengue_cache'] = dengue_cache
+                logger.info(f"Loaded dengue cache with {dengue_cache['total_records']} total records")
+                logger.info(f"Top districts: {list(dengue_cache['district_summary'].keys())[:5]}")
+                
+                # Create a simplified dengue_data structure for compatibility
+                self.current_data['dengue_data'] = {
+                    'total_records': dengue_cache['total_records'],
+                    'district_summary': dengue_cache['district_summary'],
+                    'geographic_coverage': dengue_cache['geographic_coverage'],
+                    'age_demographics': dengue_cache['age_demographics']
+                }
+                
+            except Exception as e:
+                logger.error(f"Error reading dengue cache {cache_file_path}: {e}")
+        else:
+            logger.warning(f"Dengue cache file not found at {cache_file_path}")
+            # Fallback to loading full data if cache doesn't exist
+            self.load_dengue_data()
+    
     def load_dengue_data(self):
-        """Load and process Dengue data from the 'denguedata' directory"""
+        """Load and process Dengue data from the 'denguedata' directory (fallback method)"""
         logger.info("Loading Dengue data")
         dengue_file_path = os.path.join(self.dengue_data_dir, 'Patieints.xlsx')
         if os.path.exists(dengue_file_path):

@@ -195,6 +195,122 @@
             </div>
         </section>
 
+        <!-- Pakistan Heatwave & Disease Outbreak Map -->
+        <section id="heatwave-map" class="mt-4">
+            <div class="row">
+                <div class="col-12">
+                    <div class="dashboard-card heatwave-map-card">
+                        <div class="card-header bg-gradient-danger text-white">
+                            <i class="fas fa-thermometer-full me-2"></i>
+                            Pakistan Heatwave & Disease Outbreak Prediction Map
+                            <span class="badge bg-light text-dark ms-2">Real-time Heatwave Analysis</span>
+                            <div class="float-end">
+                                <span class="text-light">
+                                    <i class="fas fa-satellite me-1"></i>
+                                    Live Monitoring
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="map-controls-panel">
+                                <div class="row g-2 p-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label text-sm">Disease Type:</label>
+                                        <select id="diseaseTypeFilter" class="form-select form-select-sm">
+                                            <option value="all">All Diseases</option>
+                                            <option value="dengue" selected>Dengue Fever</option>
+                                            <option value="malaria">Malaria</option>
+                                            <option value="respiratory">Respiratory Infections</option>
+                                            <option value="vector_borne">Vector-borne Diseases</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label text-sm">Heatwave Intensity:</label>
+                                        <select id="heatwaveIntensity" class="form-select form-select-sm">
+                                            <option value="all">All Levels</option>
+                                            <option value="extreme">Extreme (>45°C)</option>
+                                            <option value="severe">Severe (40-45°C)</option>
+                                            <option value="moderate">Moderate (35-40°C)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label text-sm">Time Range:</label>
+                                        <select id="timeRangeFilter" class="form-select form-select-sm">
+                                            <option value="24h" selected>Next 24 Hours</option>
+                                            <option value="48h">Next 48 Hours</option>
+                                            <option value="72h">Next 72 Hours</option>
+                                            <option value="7d">Next 7 Days</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="d-flex gap-2 mt-4">
+                                            <button id="toggleHeatwave" class="btn btn-outline-danger btn-sm">
+                                                <i class="fas fa-fire me-1"></i>Heatwave Layer
+                                            </button>
+                                            <button id="refreshHeatmap" class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-sync-alt me-1"></i>Refresh
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="heatwaveMap" class="heatwave-map-container"></div>
+                            <div class="heatmap-legend">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="legend-title">Temperature Scale (°C)</h6>
+                                        <div class="temperature-legend">
+                                            <div class="legend-item">
+                                                <span class="legend-color" style="background: #800026;"></span>
+                                                <span>45+ (Extreme)</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <span class="legend-color" style="background: #BD0026;"></span>
+                                                <span>40-45 (Severe)</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <span class="legend-color" style="background: #E31A1C;"></span>
+                                                <span>35-40 (High)</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <span class="legend-color" style="background: #FC4E2A;"></span>
+                                                <span>30-35 (Moderate)</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <span class="legend-color" style="background: #FD8D3C;"></span>
+                                                <span>25-30 (Normal)</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="legend-title">Disease Outbreak Risk</h6>
+                                        <div class="outbreak-legend">
+                                            <div class="legend-item">
+                                                <span class="legend-marker" style="background: #8B0000;"></span>
+                                                <span>Critical Risk (Active Outbreak)</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <span class="legend-marker" style="background: #dc3545;"></span>
+                                                <span>High Risk (Imminent)</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <span class="legend-marker" style="background: #ffc107;"></span>
+                                                <span>Medium Risk (Likely)</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <span class="legend-marker" style="background: #28a745;"></span>
+                                                <span>Low Risk (Monitoring)</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Critical Outbreak Alerts -->
         <section id="critical-alerts" class="mt-4">
             <div class="row">

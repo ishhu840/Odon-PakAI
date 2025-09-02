@@ -1,0 +1,52 @@
+{
+  "total_records": 80686,
+  "date_range": {
+    "start": "1970-01-01T00:00:00.000045664",
+    "end": "1970-01-01T00:00:00.000045743"
+  },
+  "geographic_coverage": {
+    "lat_min": 0.0,
+    "lat_max": 34.6946967,
+    "lon_min": 0.0,
+    "lon_max": 106.7534667,
+    "total_locations": 58345
+  },
+  "monthly_summary": {},
+  "district_summary": {
+    "Lahore": 39599,
+    "Rawalpindi": 29852,
+    "Gujranwala": 4375,
+    "Multan": 3534,
+    "Faisalabad": 1983,
+    "Sheikhupura": 1138,
+    "lahore": 135,
+    "rawalpindi": 60,
+    "Vehari": 2,
+    "gujranwala": 2,
+    "Hafizabad": 1,
+    "Gujrat": 1,
+    "Dera Ghazi Khan": 1,
+    "Okara": 1,
+    "Sargodha": 1,
+    "Kasur": 1
+  },
+  "age_demographics": {
+    "mean_age": 33.715102222993664,
+    "median_age": 31.0,
+    "age_groups": {
+      "0-18": 15412,
+      "19-35": 33402,
+      "36-60": 25403,
+      "60+": 6440
+    }
+  },
+  "gender_distribution": {
+    "Male": 52853,
+    "Female": 27234,
+    "M": 366,
+    "F": 219,
+    "Other": 14
+  },
+  "last_updated": "2025-09-02T17:44:27.582657",
+  "cache_version": "1.0"
+}
