@@ -428,135 +428,145 @@ async function loadCriticalOutbreakAlerts() {
     }
 }
 
-// Update critical outbreak alerts display
+// Update critical outbreak alerts display with enhanced graphics
 function updateCriticalOutbreakAlerts(data) {
-    const alertsContainer = document.getElementById('critical-alerts-container');
+    const alertsContainer = document.getElementById('critical-alerts');
     if (!alertsContainer) {
         console.warn('Critical alerts container not found');
         return;
     }
 
-    if (!data || !data.critical_alerts || 
-        (!data.critical_alerts['24_hours'] || data.critical_alerts['24_hours'].length === 0) &&
-        (!data.critical_alerts['72_hours'] || data.critical_alerts['72_hours'].length === 0)) {
+    const alerts24h = data.critical_alerts['24_hours'] || [];
+    const alerts72h = data.critical_alerts['72_hours'] || [];
+    const allAlerts = [...alerts24h, ...alerts72h];
+
+    if (allAlerts.length === 0) {
         alertsContainer.innerHTML = `
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle me-2"></i>
-                No critical outbreak alerts at this time.
+            <div class="alert alert-success d-flex align-items-center">
+                <i class="fas fa-shield-check me-3" style="font-size: 1.5rem; color: #10b981;"></i>
+                <div>
+                    <strong>All Clear</strong><br>
+                    <small>No critical dengue outbreak alerts at this time.</small>
+                </div>
             </div>
         `;
         return;
     }
 
-    let alertsHTML = '';
-    
-    // Display 24-hour alerts
-    if (data.critical_alerts['24_hours'] && data.critical_alerts['24_hours'].length > 0) {
-        alertsHTML += `
-            <div class="urgent-alert-section mb-3">
-                <h6 class="text-danger mb-2">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    URGENT: Next 24 Hours
-                </h6>
-                <div class="row">
-        `;
+    allAlerts.sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0));
+
+    const alertsByCity = allAlerts.reduce((acc, alert) => {
+        if (!acc[alert.city]) {
+            acc[alert.city] = {};
+        }
+        if (alert.timeframe === '24 hours') {
+            acc[alert.city]['24h'] = alert;
+        } else {
+            acc[alert.city]['72h'] = alert;
+        }
+        return acc;
+    }, {});
+
+    let alertsHTML = `
+        <div class="urgent-alert-section">
+            <div class="d-flex align-items-center mb-3 p-2" style="background: linear-gradient(135deg, #fef2f2, #fff7ed); border-radius: 12px; border-left: 4px solid #f97316;">
+                <i class="fas fa-virus dengue-icon me-3"></i>
+                <div>
+                    <h6 class="mb-0 text-danger fw-bold">🚨 Critical Dengue Outbreak Alerts</h6>
+                    <small class="text-muted">24-72 Hour Predictions • AI-Powered Risk Assessment</small>
+                </div>
+            </div>
+    `;
+
+    for (const city in alertsByCity) {
+        const cityAlerts = alertsByCity[city];
+        const alert24h = cityAlerts['24h'] || {};
+        const alert72h = cityAlerts['72h'] || {};
+        const primaryAlert = alert24h.risk_score >= alert72h.risk_score ? alert24h : alert72h;
+
+        const isHighRisk = (primaryAlert.risk_score >= 80);
+        const isMediumRisk = (primaryAlert.risk_score >= 60 && primaryAlert.risk_score < 80);
         
-        data.critical_alerts['24_hours'].forEach(alert => {
-            alertsHTML += `
-                <div class="col-md-6 mb-2">
-                    <div class="card border-danger">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong class="text-danger">${alert.city}</strong>
-                                    <div class="small">${alert.primary_disease}</div>
-                                    <div class="small text-muted">${alert.estimated_cases_24h} cases (24h)</div>
-                                    <div class="small text-success">Confidence: ${Math.round(alert.confidence * 100)}%</div>
-                                </div>
-                                <div class="text-end">
-                                    <span class="badge bg-danger">${alert.alert_level}</span>
-                                </div>
+        let cardClass = 'dengue-alert-card';
+        let iconClass = 'dengue-icon';
+        let riskBadgeClass = 'risk-score-badge';
+        let casesClass = 'cases-number';
+        
+        if (isHighRisk) {
+            cardClass += ' dengue-alert-high';
+            iconClass += ' dengue-icon-high';
+            riskBadgeClass += ' risk-score-high';
+            casesClass += ' cases-number-high';
+        } else if (isMediumRisk) {
+            cardClass += ' dengue-alert-medium';
+            riskBadgeClass += ' risk-score-medium';
+        }
+
+        const riskIcon = isHighRisk ? 'fa-exclamation-triangle' : isMediumRisk ? 'fa-exclamation-circle' : 'fa-info-circle';
+        const mosquitoIcon = isHighRisk ? '🦟⚠️' : '🦟';
+
+        alertsHTML += `
+            <div class="${cardClass} mb-3">
+                <div class="card-body">
+                    <div class="alert-header">
+                        <div class="d-flex align-items-center">
+                            <span style="font-size: 2rem; margin-right: 0.75rem;">${mosquitoIcon}</span>
+                            <div>
+                                <h5 class="city-name">${city}</h5>
+                                <span class="timeframe-badge">
+                                    <i class="fas fa-clock me-1"></i>Next ${primaryAlert.timeframe || '24-72 hours'}
+                                </span>
                             </div>
-                            <div class="mt-1">
-                                <small class="text-muted">${alert.immediate_actions ? alert.immediate_actions.join(', ') : 'Monitor situation'}</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="${riskBadgeClass}">
+                                <i class="fas ${riskIcon} me-1"></i>
+                                ${primaryAlert.risk_score ? primaryAlert.risk_score.toFixed(1) : 'N/A'}%
                             </div>
                         </div>
                     </div>
-                </div>
-            `;
-        });
-        
-        alertsHTML += `
-                </div>
-            </div>
-        `;
-    }
-    
-    // Display 72-hour alerts
-    if (data.critical_alerts['72_hours'] && data.critical_alerts['72_hours'].length > 0) {
-        alertsHTML += `
-            <div class="alert-section mb-3">
-                <h6 class="text-warning mb-2">
-                    <i class="fas fa-clock me-2"></i>
-                    WATCH: Next 72 Hours
-                </h6>
-                <div class="row">
-        `;
-        
-        data.critical_alerts['72_hours'].forEach(alert => {
-            alertsHTML += `
-                <div class="col-md-6 mb-2">
-                    <div class="card border-warning">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong class="text-warning">${alert.city}</strong>
-                                    <div class="small">${alert.primary_disease}</div>
-                                    <div class="small text-muted">${alert.estimated_cases_72h} cases (72h)</div>
-                                    <div class="small text-success">Confidence: ${Math.round(alert.confidence * 100)}%</div>
-                                </div>
-                                <div class="text-end">
-                                    <span class="badge bg-warning text-dark">${alert.alert_level}</span>
+                    
+                    <div class="threat-description">
+                        <i class="fas fa-biohazard me-2" style="color: #f97316;"></i>
+                        <strong>Primary Threat:</strong> ${primaryAlert.primary_threat || 'Dengue outbreak risk'}
+                    </div>
+                    
+                    <div class="cases-prediction">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <div class="d-flex flex-column align-items-center">
+                                    <i class="fas fa-calendar-day mb-2" style="color: #3b82f6; font-size: 1.2rem;"></i>
+                                    <span class="text-muted small">24 Hours</span>
+                                    <span class="${casesClass}">${alert24h.expected_cases || '0'}</span>
+                                    <small class="text-muted">cases</small>
                                 </div>
                             </div>
-                            <div class="mt-1">
-                                <small class="text-muted">${alert.recommended_actions ? alert.recommended_actions.join(', ') : 'Monitor situation'}</small>
+                            <div class="col-6">
+                                <div class="d-flex flex-column align-items-center">
+                                    <i class="fas fa-calendar-week mb-2" style="color: #8b5cf6; font-size: 1.2rem;"></i>
+                                    <span class="text-muted small">72 Hours</span>
+                                    <span class="${casesClass}">${alert72h.expected_cases || '0'}</span>
+                                    <small class="text-muted">cases</small>
+                                </div>
                             </div>
                         </div>
                     </div>
+                    
+                    ${isHighRisk ? `
+                        <div class="mt-3 p-2" style="background: rgba(220, 38, 38, 0.1); border-radius: 8px; border-left: 3px solid #dc2626;">
+                            <small class="text-danger fw-bold">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                HIGH PRIORITY: Immediate intervention recommended
+                            </small>
+                        </div>
+                    ` : ''}
                 </div>
-            `;
-        });
-        
-        alertsHTML += `
-                </div>
             </div>
         `;
     }
-    
-    // Add summary if available
-    if (data.alert_summary) {
-        alertsHTML += `
-            <div class="alert alert-info mt-3">
-                <h6 class="mb-2">Alert Summary</h6>
-                <p class="mb-1"><strong>Highest Priority City:</strong> ${data.alert_summary.highest_priority}</p>
-                <p class="mb-1"><strong>Total Critical Alerts:</strong> ${data.alert_summary.total_critical_alerts}</p>
-                <p class="mb-0"><strong>Last Updated:</strong> ${data.last_updated ? new Date(data.last_updated).toLocaleString() : 'N/A'}</p>
-            </div>
-        `;
-    }
-    
-    // Add weather context if available
-    if (data.weather_context) {
-        alertsHTML += `
-            <div class="alert alert-secondary mt-2">
-                <small><i class="fas fa-cloud me-1"></i><strong>Weather Context:</strong> ${data.weather_context.data_availability} weather data available</small>
-            </div>
-        `;
-    }
-    
+
+    alertsHTML += `</div>`;
     alertsContainer.innerHTML = alertsHTML;
-    console.log('Critical outbreak alerts updated successfully');
 }
 
 // Load AI recommendations

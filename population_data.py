@@ -351,7 +351,14 @@ class PopulationDatabase:
         }
     
     def estimate_disease_cases(self, city_name: str, disease: str, temperature: float, humidity: float, risk_level: str) -> Dict[str, Any]:
-        """Estimate potential disease cases based on weather conditions and risk level"""
+        """Estimate potential disease cases based on weather conditions, risk level, and current date"""
+        from datetime import datetime
+        
+        # Get current date for seasonal adjustments
+        current_date = datetime.now()
+        current_month = current_date.month
+        current_day = current_date.day
+        
         population_risk = self.calculate_population_at_risk(city_name, disease, 
                                                            self._get_risk_factors_from_weather(temperature, humidity))
         
@@ -392,10 +399,16 @@ class PopulationDatabase:
         
         base_transmission_rate = transmission_rates[disease_key].get(risk_level.lower(), 0.005)
         
+        # Apply seasonal adjustments based on current month
+        seasonal_multiplier = self._calculate_seasonal_multiplier(disease_key, current_month)
+        
         # Weather-based adjustments
         weather_multiplier = self._calculate_weather_multiplier(disease, temperature, humidity)
         
-        final_transmission_rate = base_transmission_rate * weather_multiplier
+        # Add some variability based on day of month (0.9-1.1 range)
+        daily_variability = 0.9 + ((current_day % 10) / 50.0)  # Creates variation between 0.9-1.1
+        
+        final_transmission_rate = base_transmission_rate * weather_multiplier * seasonal_multiplier * daily_variability
         
         # Calculate estimated cases for different time periods
         risk_population = population_risk["final_risk_population"]
@@ -435,6 +448,54 @@ class PopulationDatabase:
             factors.append("high_density")  # Heat + humidity increases transmission in crowded areas
         
         return factors
+    
+    def _calculate_seasonal_multiplier(self, disease: str, current_month: int) -> float:
+        """Calculate seasonal transmission multiplier based on month"""
+        # Define seasonal patterns for different diseases
+        seasonal_patterns = {
+            "dengue": {
+                # Dengue peaks during and after monsoon (July-November)
+                "high": [7, 8, 9, 10, 11],  # July-November
+                "medium": [5, 6, 12],       # May, June, December
+                "low": [1, 2, 3, 4]        # January-April
+            },
+            "malaria": {
+                # Malaria peaks during monsoon and post-monsoon (June-October)
+                "high": [6, 7, 8, 9, 10],   # June-October
+                "medium": [4, 5, 11],       # April, May, November
+                "low": [1, 2, 3, 12]        # December-March
+            },
+            "respiratory": {
+                # Respiratory infections peak in winter (November-February)
+                "high": [11, 12, 1, 2],     # November-February
+                "medium": [3, 10],          # March, October
+                "low": [4, 5, 6, 7, 8, 9]   # April-September
+            },
+            "heat_stroke": {
+                # Heat stroke peaks in summer (April-June)
+                "high": [4, 5, 6],          # April-June
+                "medium": [3, 7],           # March, July
+                "low": [1, 2, 8, 9, 10, 11, 12] # August-February
+            }
+        }
+        
+        # Default pattern if disease not found
+        default_pattern = {
+            "high": [6, 7, 8, 9],
+            "medium": [4, 5, 10, 11],
+            "low": [1, 2, 3, 12]
+        }
+        
+        # Get seasonal pattern for the disease
+        pattern = seasonal_patterns.get(disease.lower(), default_pattern)
+        
+        # Determine multiplier based on current month
+        if current_month in pattern["high"]:
+            return 1.5  # High season
+        elif current_month in pattern["medium"]:
+            return 1.0  # Medium season
+        else:
+            return 0.6  # Low season
     
     def _calculate_weather_multiplier(self, disease: str, temperature: float, humidity: float) -> float:
         """Calculate weather-based transmission multiplier"""

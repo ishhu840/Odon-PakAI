@@ -389,26 +389,28 @@ body {
 
 .alert-item {
     background: white;
-    border-radius: 12px;
+    border-radius: 15px;
     padding: 1.5rem;
     margin-bottom: 1rem;
     border-left: 5px solid var(--danger-color);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.05);
 }
 
 .alert-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 35px rgba(0,0,0,0.18);
 }
 
-/* Critical alert with pulsing animation */
+/* Enhanced critical alert styling */
 .alert-critical {
-    border-left-color: #8B0000;
-    background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
-    animation: pulse-border 2s infinite;
+    border-left-color: #dc2626;
+    background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+    animation: pulse-glow 3s infinite;
+    border: 2px solid rgba(220, 38, 38, 0.2);
 }
 
 .alert-critical::before {
@@ -417,14 +419,86 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #8B0000, #dc3545, #8B0000);
-    animation: shimmer 2s infinite;
+    height: 4px;
+    background: linear-gradient(90deg, #dc2626, #ef4444, #dc2626);
+    animation: shimmer 2.5s infinite;
+    border-radius: 15px 15px 0 0;
 }
 
-@keyframes pulse-border {
-    0%, 100% { border-left-color: #8B0000; }
-    50% { border-left-color: #dc3545; }
+/* Enhanced dengue alert card styling */
+.dengue-alert-card {
+    background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%);
+    border: 2px solid #fb923c;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(251, 146, 60, 0.15);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.dengue-alert-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(251, 146, 60, 0.25);
+    border-color: #f97316;
+}
+
+.dengue-alert-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #f97316, #fb923c, #f97316);
+    animation: pulse-orange 2s infinite;
+}
+
+/* High risk dengue alert */
+.dengue-alert-high {
+    background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+    border: 2px solid #dc2626;
+    animation: pulse-danger 3s infinite;
+}
+
+.dengue-alert-high::before {
+    background: linear-gradient(90deg, #dc2626, #ef4444, #dc2626);
+}
+
+/* Medium risk dengue alert */
+.dengue-alert-medium {
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+    border: 2px solid #f59e0b;
+}
+
+.dengue-alert-medium::before {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24, #f59e0b);
+}
+
+@keyframes pulse-glow {
+    0%, 100% { 
+        box-shadow: 0 8px 25px rgba(220, 38, 38, 0.15), 0 0 0 0 rgba(220, 38, 38, 0.4);
+    }
+    50% { 
+        box-shadow: 0 12px 35px rgba(220, 38, 38, 0.25), 0 0 0 8px rgba(220, 38, 38, 0.1);
+    }
+}
+
+@keyframes pulse-danger {
+    0%, 100% { 
+        box-shadow: 0 10px 30px rgba(220, 38, 38, 0.2), 0 0 0 0 rgba(220, 38, 38, 0.4);
+    }
+    50% { 
+        box-shadow: 0 15px 40px rgba(220, 38, 38, 0.3), 0 0 0 6px rgba(220, 38, 38, 0.15);
+    }
+}
+
+@keyframes pulse-orange {
+    0%, 100% { 
+        opacity: 0.8;
+    }
+    50% { 
+        opacity: 1;
+    }
 }
 
 @keyframes shimmer {
@@ -528,6 +602,110 @@ body {
 .alert-item .fa-thermometer-half { color: #FF8C00; }
 .alert-item .fa-viruses { color: #9932CC; }
 .alert-item .fa-shield-alt { color: var(--success-color); }
+
+/* Enhanced dengue alert styling */
+.dengue-icon {
+    font-size: 2.5rem;
+    color: #f97316;
+    text-shadow: 0 2px 4px rgba(249, 115, 22, 0.3);
+    animation: pulse-icon 2s infinite;
+}
+
+.dengue-icon-high {
+    color: #dc2626;
+    text-shadow: 0 2px 4px rgba(220, 38, 38, 0.4);
+}
+
+.risk-score-badge {
+    background: linear-gradient(135deg, #f97316, #fb923c);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+    display: inline-block;
+    margin-bottom: 0.5rem;
+}
+
+.risk-score-high {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+    animation: pulse-badge 2s infinite;
+}
+
+.risk-score-medium {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.cases-prediction {
+    background: rgba(249, 115, 22, 0.1);
+    border: 2px solid rgba(249, 115, 22, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.cases-number {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #f97316;
+    text-shadow: 0 1px 2px rgba(249, 115, 22, 0.2);
+}
+
+.cases-number-high {
+    color: #dc2626;
+    text-shadow: 0 1px 2px rgba(220, 38, 38, 0.3);
+    animation: pulse-number 1.5s infinite;
+}
+
+.timeframe-badge {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1d4ed8;
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.alert-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.city-name {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0;
+}
+
+.threat-description {
+    color: #6b7280;
+    font-size: 0.95rem;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+@keyframes pulse-icon {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes pulse-badge {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+@keyframes pulse-number {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+}
 
 /* High-risk areas styling */
 .risk-area-item {

@@ -48,15 +48,36 @@ class WeatherService:
             }
         }
         
+        self.api_available = False
         if not self.api_key:
-            logger.warning("OpenWeatherMap API key not found. Weather features will be limited.")
+            logger.warning("OpenWeatherMap API key not found. Using fallback weather data.")
         else:
-            print(f"OpenWeatherMap API Key loaded: {self.api_key[:5]}...{self.api_key[-5:]}") # Print partial key for verification
+            # Test API key validity
+            self._test_api_connection() # Print partial key for verification
+    
+    def _test_api_connection(self) -> None:
+        """Test if the API key is valid by making a simple request"""
+        try:
+            test_url = f"{self.base_url}/weather"
+            params = {
+                "lat": 24.8607,  # Karachi coordinates
+                "lon": 67.0011,
+                "appid": self.api_key,
+                "units": "metric"
+            }
+            response = requests.get(test_url, params=params, timeout=10)
+            if response.status_code == 200:
+                self.api_available = True
+                logger.info("OpenWeatherMap API connection successful.")
+            else:
+                logger.warning(f"OpenWeatherMap API test failed with status {response.status_code}. Using fallback data.")
+        except Exception as e:
+            logger.warning(f"OpenWeatherMap API test failed: {str(e)}. Using fallback data.")
     
     def get_current_weather(self) -> Dict[str, Any]:
         """Get current weather data for major Pakistani cities"""
         try:
-            if not self.api_key:
+            if not self.api_key or not self.api_available:
                 return self._get_fallback_weather()
             
             weather_data = {
@@ -345,35 +366,118 @@ class WeatherService:
         except:
             return 'low'
     def get_historical_weather(self, lat: float, lon: float, start: int, end: int) -> Optional[Dict[str, Any]]:
-        """Get historical weather data for specific coordinates (mocked)."""
-        logger.info(f"Fetching historical weather for lat={lat}, lon={lon} (mocked)")
+        """Get historical weather data for specific coordinates using OpenWeatherMap API."""
+        logger.info(f"Fetching historical weather for lat={lat}, lon={lon} from {datetime.fromtimestamp(start)} to {datetime.fromtimestamp(end)}")
         
+        if not self.api_key or not self.api_available:
+            logger.info("Using fallback historical weather data")
+            return self._get_fallback_historical_weather(lat, lon, start, end)
+        
+        try:
+            all_data_points = []
+            current_timestamp = start
+            
+            # OpenWeatherMap historical data API allows fetching data day by day
+            # We'll fetch data in chunks to avoid rate limits
+            while current_timestamp <= end:
+                try:
+                    url = f"https://api.openweathermap.org/data/3.0/onecall/timemachine"
+                    params = {
+                        "lat": lat,
+                        "lon": lon,
+                        "dt": current_timestamp,
+                        "appid": self.api_key,
+                        "units": "metric"
+                    }
+                    
+                    response = requests.get(url, params=params, timeout=15)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if 'data' in data and len(data['data']) > 0:
+                            # Extract the daily data point
+                            daily_data = data['data'][0]
+                            processed_data = {
+                                "dt": daily_data.get('dt', current_timestamp),
+                                "temp": daily_data.get('temp', 25),
+                                "feels_like": daily_data.get('feels_like', 25),
+                                "pressure": daily_data.get('pressure', 1012),
+                                "humidity": daily_data.get('humidity', 60),
+                                "dew_point": daily_data.get('dew_point', 16.67),
+                                "uvi": daily_data.get('uvi', 5.4),
+                                "clouds": daily_data.get('clouds', 20),
+                                "visibility": daily_data.get('visibility', 10000),
+                                "wind_speed": daily_data.get('wind_speed', 3.09),
+                                "wind_deg": daily_data.get('wind_deg', 360),
+                                "weather": daily_data.get('weather', [{
+                                    "id": 801,
+                                    "main": "Clouds",
+                                    "description": "few clouds",
+                                    "icon": "02d"
+                                }])
+                            }
+                            all_data_points.append(processed_data)
+                    else:
+                        logger.warning(f"API request failed with status {response.status_code} for timestamp {current_timestamp}")
+                        # Add fallback data point for this day
+                        all_data_points.append(self._get_fallback_data_point(current_timestamp))
+                    
+                    # Move to next day
+                    current_timestamp += 86400  # 24 hours in seconds
+                    
+                    # Add small delay to respect rate limits
+                    import time
+                    time.sleep(0.1)
+                    
+                except Exception as e:
+                    logger.error(f"Error fetching historical data for timestamp {current_timestamp}: {e}")
+                    # Add fallback data point
+                    all_data_points.append(self._get_fallback_data_point(current_timestamp))
+                    current_timestamp += 86400
+            
+            return {
+                "lat": lat,
+                "lon": lon,
+                "timezone": "Asia/Karachi",
+                "timezone_offset": 18000,
+                "data": all_data_points
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in get_historical_weather: {e}")
+            return self._get_fallback_historical_weather(lat, lon, start, end)
+    
+    def _get_fallback_data_point(self, timestamp: int) -> Dict[str, Any]:
+        """Generate a fallback data point for a specific timestamp"""
+        dt = datetime.fromtimestamp(timestamp)
+        return {
+            "dt": timestamp,
+            "temp": 25 + (dt.day % 5) - 2,
+            "feels_like": 25 + (dt.day % 5) - 2,
+            "pressure": 1012 + (dt.day % 3) - 1,
+            "humidity": 60 + (dt.day % 10) - 5,
+            "dew_point": 16.67 + (dt.day % 3) - 1,
+            "uvi": 5.4 + (dt.day % 2) - 1,
+            "clouds": 20 + (dt.day % 15) - 7,
+            "visibility": 10000,
+            "wind_speed": 3.09 + (dt.day % 2) - 1,
+            "wind_deg": 360,
+            "weather": [{
+                "id": 801,
+                "main": "Clouds",
+                "description": "few clouds",
+                "icon": "02d"
+            }]
+        }
+    
+    def _get_fallback_historical_weather(self, lat: float, lon: float, start: int, end: int) -> Dict[str, Any]:
+        """Generate fallback historical weather data when API is not available"""
         mock_data_points = []
         current_dt = datetime.fromtimestamp(start)
         end_dt = datetime.fromtimestamp(end)
 
         while current_dt <= end_dt:
-            mock_data_points.append({
-                "dt": int(current_dt.timestamp()),
-                "temp": 25 + (current_dt.day % 5) - 2, # Simulate some temperature variation
-                "feels_like": 25 + (current_dt.day % 5) - 2,
-                "pressure": 1012 + (current_dt.day % 3) - 1,
-                "humidity": 60 + (current_dt.day % 10) - 5,
-                "dew_point": 16.67 + (current_dt.day % 3) - 1,
-                "uvi": 5.4 + (current_dt.day % 2) - 1,
-                "clouds": 20 + (current_dt.day % 15) - 7,
-                "visibility": 10000,
-                "wind_speed": 3.09 + (current_dt.day % 2) - 1,
-                "wind_deg": 360,
-                "weather": [
-                    {
-                        "id": 801,
-                        "main": "Clouds",
-                        "description": "few clouds",
-                        "icon": "02d"
-                    }
-                ]
-            })
+            mock_data_points.append(self._get_fallback_data_point(int(current_dt.timestamp())))
             current_dt += timedelta(days=1)
 
         return {

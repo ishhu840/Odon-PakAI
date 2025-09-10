@@ -35,6 +35,18 @@ try:
     # Start the scheduler
     scheduler.start()
     logger.info("All services initialized successfully")
+    
+    # Load data asynchronously after server startup
+    import threading
+    def load_data_async():
+        try:
+            data_processor.load_data()
+        except Exception as e:
+            logger.error(f"Error in background data loading: {e}")
+    
+    # Start background data loading
+    threading.Thread(target=load_data_async, daemon=True).start()
+    
 except Exception as e:
     logger.error(f"Failed to initialize services: {e}")
     data_processor = None
@@ -684,6 +696,8 @@ def generate_city_recommendations(city_name, alert_diseases, temperature, humidi
             })
     
     return recommendations
+
+
 
 @app.route('/api/model-status')
 def get_model_status():

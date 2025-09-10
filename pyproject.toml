@@ -1,7 +1,7 @@
 [project]
-name = "repl-nix-workspace"
-version = "0.1.0"
-description = "Add your description here"
+name = "aliya-ai-disease-surveillance"
+version = "1.0.0"
+description = "AI-powered disease surveillance and prediction system for Pakistan with real-time weather integration"
 requires-python = ">=3.11"
 dependencies = [
     "apscheduler>=3.11.0",
